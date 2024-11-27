@@ -3,10 +3,13 @@
 package main
 
 import (
+	"go-social-network/data"
+
 	"github.com/cloudwego/hertz/pkg/app/server"
 )
 
 func main() {
+	data.Init()
 	h := server.Default()
 
 	register(h)

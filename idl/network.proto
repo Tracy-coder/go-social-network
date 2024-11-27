@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package network;
+import "api.proto";
+import "base.proto";
+message UserRegisterReq{
+	string username = 1;
+	string password = 2;
+    string email = 3;
+}
+
+service user{
+  rpc Register(UserRegisterReq) returns (base.BaseResp) {
+    option (api.post) = "/api/v1/register";
+  }
+}

@@ -1,0 +1,50 @@
+Name: e-mall
+IsDemo: false  # true: demo mode, forbid operations like create, update, delete
+IsProd: true
+Host: 0.0.0.0
+Port: 8888
+Timeout: 30000
+
+Captcha:
+  KeyLong: 5
+  ImgWidth: 240
+  ImgHeight: 80
+
+
+Redis:
+  Enable: false
+  Host: 127.0.0.1
+  Port: 6379
+  Type: node
+  Password: "root"
+  DB: 0
+
+Database:
+  Type: mysql # mysql, postgres
+  Host: 127.0.0.1
+  Port: 3306
+  DBName: e-mall
+  Username: mall # set your username
+  Password: password # set your password
+  MaxOpenConn: 100
+  SSLMode: false
+  CacheTime: 5
+
+Casbin:
+  ModelText: |
+    [request_definition]
+    r = sub, obj, act
+    [policy_definition]
+    p = sub, obj, act
+    [role_definition]
+    g = _, _
+    [policy_effect]
+    e = some(where (p.eft == allow))
+    [matchers]
+    m = r.sub == p.sub && keyMatch2(r.obj,p.obj) && r.act == p.act
+
+Kafka:
+  Brokers:
+    - "localhost:9092"
+  Topic: "email"
+  GroupID: "email_01"
