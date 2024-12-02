@@ -3,13 +3,16 @@
 package main
 
 import (
-	"github.com/cloudwego/hertz/pkg/app/server"
 	handler "go-social-network/biz/handler"
+	"go-social-network/biz/handler/middleware"
+	"go-social-network/data"
+
+	"github.com/cloudwego/hertz/pkg/app/server"
 )
 
 // customizeRegister registers customize routers.
 func customizedRegister(r *server.Hertz) {
 	r.GET("/ping", handler.Ping)
-
+	r.POST("/api/v1/user/login", middleware.GetJWTMiddleware(data.Default()).LoginHandler)
 	// your code ...
 }

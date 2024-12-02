@@ -5,11 +5,12 @@ go 1.23.3
 require (
 	github.com/cloudwego/hertz v0.9.3
 	github.com/golang/protobuf v1.5.0
+	github.com/hertz-contrib/jwt v1.0.2
 	github.com/jinzhu/configor v1.2.2
 	github.com/jinzhu/copier v0.4.0
 	github.com/redis/go-redis/v9 v9.7.0
 	golang.org/x/crypto v0.29.0
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/protobuf v1.28.0
 )
 
 require (
@@ -24,6 +25,7 @@ require (
 	github.com/cloudwego/netpoll v0.6.2 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
+	github.com/golang-jwt/jwt/v4 v4.4.1 // indirect
 	github.com/henrylee2cn/ameda v1.4.10 // indirect
 	github.com/henrylee2cn/goutil v0.0.0-20210127050712-89660552f6f8 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
