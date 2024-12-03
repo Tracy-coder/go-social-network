@@ -4,6 +4,8 @@ package network
 
 import (
 	"context"
+	"errors"
+	"strconv"
 
 	domain "go-social-network/biz/domain"
 	"go-social-network/biz/logic"
@@ -39,4 +41,147 @@ func Register(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	c.JSON(consts.StatusOK, resp)
+}
+
+// UserInfo .
+// @router /api/v1/user/info [GET]
+func UserInfo(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.Empty
+	resp := new(network.UserInfoResp)
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	info, err := logic.NewUser(data.Default()).UserInfo(ctx, userID)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_GetUserInfoError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	err = copier.Copy(resp, info)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CopierError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	c.JSON(consts.StatusOK, resp)
+}
+
+func getUserID(c *app.RequestContext) (int64, error) {
+	v, exist := c.Get("userID")
+	if !exist || v == nil {
+		return 0, errors.New("Unauthorized")
+	}
+	i, err := strconv.ParseInt(v.(string), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return i, nil
+}
+
+// PostStatus .
+// @router /api/v1/user/post [POST]
+func PostStatus(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.PostStatusReq
+	err = c.BindAndValidate(&req)
+	resp := new(network.PostStatusResp)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	res, err := logic.NewUser(data.Default()).PostSatus(ctx, userID, req.Message)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_PostStatusError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	err = copier.Copy(resp, res)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CopierError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// GetTimeline .
+// @router /api/v1/user/timeline [GET]
+func GetTimeline(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.GetTimelineReq
+	err = c.BindAndValidate(&req)
+	resp := new(network.GetTimelineResp)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	res, err := logic.NewUser(data.Default()).GetTimeline(ctx, userID, req.PageID, req.PageSize)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_GetTimelineError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	info := make([]*network.StatusInfo, len(res))
+	err = copier.Copy(&info, res)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CopierError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp.Info = info
+	resp.PageID = req.PageID
+	c.JSON(consts.StatusOK, resp)
+}
+
+// FollowAndUnfollow .
+// @router /api/v1/user/follow [POST]
+func FollowAndUnfollow(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.FollowAndUnfollowReq
+	resp := new(base.BaseResp)
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	if req.Action == true {
+		err = logic.NewUser(data.Default()).FollowAction(ctx, userID, req.OtherID)
+	} else {
+		err = logic.NewUser(data.Default()).UnFollowAction(ctx, userID, req.OtherID)
+	}
+	if err != nil {
+		resp.ErrCode = base.ErrCode_FollowAndUnfollowError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// Reset .
+// @router /api/v1/reset [DELETE]
+func Reset(ctx context.Context, c *app.RequestContext) {
+	logic.NewUser(data.Default()).Reset(ctx)
 }

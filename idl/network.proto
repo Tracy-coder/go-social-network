@@ -6,17 +6,82 @@ import "base.proto";
 message UserRegisterReq{
 	string username = 1;
 	string password = 2;
-    string email = 3;
+  string email = 3;
 }
-
 message UserLoginResp{
   string code = 1;
   string token = 2;
   string expire = 3;
 }
+message Empty {}
+message UserInfoResp{
+  base.ErrCode errCode = 1;
+  string errMsg = 2;
+  int64 ID = 3;
+  string username = 4;
+  string email = 5;
+  int32 followers = 6;
+  int32 following = 7;
+  int32 posts = 8;
+  uint64 signup = 9;
+}
+
+message PostStatusReq{
+  string message = 1;
+}
+
+message PostStatusResp{
+  base.ErrCode errCode = 1;
+  string errMsg = 2;
+  int64 ID = 3;
+  int64 userID = 4; 
+  string username = 5;
+  string message = 6;
+  uint64 posted = 7;
+}
+
+message GetTimelineReq{
+  int32 pageID = 1;
+  int32 pageSize = 2;
+}
+
+message StatusInfo{
+  int64 ID = 1;
+  int64 userID = 2; 
+  string username = 3;
+  string message = 4;
+  uint64 posted = 5;
+}
+message GetTimelineResp{
+  base.ErrCode errCode = 1;
+  string errMsg = 2;
+  int32 pageID = 3;
+  repeated StatusInfo info= 4;
+}
+
+message FollowAndUnfollowReq{
+  int64 otherID = 1;
+  bool action = 2;  // true:follow
+}
 service user{
+  rpc Reset(Empty) returns (Empty){
+    option (api.delete) = "/api/v1/reset";
+  }
   rpc Register(UserRegisterReq) returns (base.BaseResp) {
     option (api.post) = "/api/v1/register";
   }
+  rpc UserInfo(Empty) returns (UserInfoResp){
+    option (api.get) = "/api/v1/user/info";
+  }
 
+  rpc PostStatus(PostStatusReq) returns(PostStatusResp){
+    option (api.post) = "/api/v1/user/post";
+  }
+  rpc GetTimeline(GetTimelineReq)returns(GetTimelineResp){
+    option (api.get) = "/api/v1/user/timeline";
+  }
+  rpc FollowAndUnfollow(FollowAndUnfollowReq) returns(base.BaseResp){
+    option (api.post) = "/api/v1/user/follow";
+  }
+  
 }

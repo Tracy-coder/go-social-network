@@ -22,6 +22,14 @@ func Register(r *server.Hertz) {
 		{
 			_v1 := _api.Group("/v1", _v1Mw()...)
 			_v1.POST("/register", append(_registerMw(), network.Register)...)
+			_v1.DELETE("/reset", append(_resetMw(), network.Reset)...)
+			{
+				_user := _v1.Group("/user", _userMw()...)
+				_user.POST("/follow", append(_followandunfollowMw(), network.FollowAndUnfollow)...)
+				_user.GET("/info", append(_userinfoMw(), network.UserInfo)...)
+				_user.POST("/post", append(_poststatusMw(), network.PostStatus)...)
+				_user.GET("/timeline", append(_gettimelineMw(), network.GetTimeline)...)
+			}
 		}
 	}
 }

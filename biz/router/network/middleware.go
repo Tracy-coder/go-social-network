@@ -3,6 +3,9 @@
 package network
 
 import (
+	"go-social-network/biz/handler/middleware"
+	"go-social-network/data"
+
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
@@ -22,6 +25,36 @@ func _v1Mw() []app.HandlerFunc {
 }
 
 func _registerMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _userMw() []app.HandlerFunc {
+	// your code...
+	return []app.HandlerFunc{middleware.GetJWTMiddleware(data.Default()).MiddlewareFunc()}
+}
+
+func _userinfoMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _poststatusMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _gettimelineMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _followandunfollowMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _resetMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }

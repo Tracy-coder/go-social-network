@@ -7,7 +7,11 @@ enum ErrCode {
   Success = 0;
   ArgumentError = 1;
   CreateUserError = 2;
-
+  CopierError = 3;
+  GetUserInfoError = 4;
+  PostStatusError = 5;
+  GetTimelineError = 6;
+  FollowAndUnfollowError = 7;
 }
 
 
