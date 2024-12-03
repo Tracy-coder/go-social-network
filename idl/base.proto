@@ -12,6 +12,7 @@ enum ErrCode {
   PostStatusError = 5;
   GetTimelineError = 6;
   FollowAndUnfollowError = 7;
+  DeleteStatusError = 8;
 }
 
 

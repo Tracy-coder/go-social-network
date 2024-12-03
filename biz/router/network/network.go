@@ -27,6 +27,7 @@ func Register(r *server.Hertz) {
 				_user := _v1.Group("/user", _userMw()...)
 				_user.POST("/follow", append(_followandunfollowMw(), network.FollowAndUnfollow)...)
 				_user.GET("/info", append(_userinfoMw(), network.UserInfo)...)
+				_user.DELETE("/post", append(_deletestatusMw(), network.DeleteStatus)...)
 				_user.POST("/post", append(_poststatusMw(), network.PostStatus)...)
 				_user.GET("/timeline", append(_gettimelineMw(), network.GetTimeline)...)
 			}

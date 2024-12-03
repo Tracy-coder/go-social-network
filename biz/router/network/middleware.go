@@ -58,3 +58,8 @@ func _resetMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _deletestatusMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

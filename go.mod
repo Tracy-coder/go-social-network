@@ -9,6 +9,7 @@ require (
 	github.com/jinzhu/configor v1.2.2
 	github.com/jinzhu/copier v0.4.0
 	github.com/redis/go-redis/v9 v9.7.0
+	github.com/satori/go.uuid v1.2.0
 	golang.org/x/crypto v0.29.0
 	google.golang.org/protobuf v1.28.0
 )

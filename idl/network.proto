@@ -63,6 +63,10 @@ message FollowAndUnfollowReq{
   int64 otherID = 1;
   bool action = 2;  // true:follow
 }
+
+message DeleteStatusReq{
+  int64 postID = 1;
+}
 service user{
   rpc Reset(Empty) returns (Empty){
     option (api.delete) = "/api/v1/reset";
@@ -76,6 +80,9 @@ service user{
 
   rpc PostStatus(PostStatusReq) returns(PostStatusResp){
     option (api.post) = "/api/v1/user/post";
+  }
+  rpc DeleteStatus(DeleteStatusReq) returns (base.BaseResp){
+    option (api.delete) = "/api/v1/user/post";
   }
   rpc GetTimeline(GetTimelineReq)returns(GetTimelineResp){
     option (api.get) = "/api/v1/user/timeline";

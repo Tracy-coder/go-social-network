@@ -18,7 +18,7 @@ type User struct {
 	Data *data.Data
 }
 
-func NewUser(data *data.Data) *User {
+func NewUser(data *data.Data) domain.User {
 	return &User{Data: data}
 }
 
@@ -30,7 +30,12 @@ func (u *User) Register(ctx context.Context, req domain.UserRegisterReq) error {
 	if u.Data.Redis.HGet(ctx, common.Username2ID, req.Username).Val() != "" {
 		return errors.New("Username already exists")
 	}
+	lock := u.Data.AcquireLockWithTimeout(ctx, "user:"+req.Username, 10, 10)
 
+	if lock == "" {
+		return errors.New("concurrency errors")
+	}
+	defer u.Data.ReleaseLock(ctx, "user:"+req.Username, lock)
 	id := u.Data.Redis.Incr(ctx, common.UserIDCounter).Val()
 	password, _ := encrypt.BcryptEncrypt(req.Password)
 	pipeline := u.Data.Redis.TxPipeline()
@@ -87,7 +92,7 @@ func (u *User) UserInfo(ctx context.Context, userID int64) (*domain.UserInfoResp
 	return nil, errors.New("get user info error")
 }
 
-func (u *User) PostSatus(ctx context.Context, userID int64, message string) (*domain.StatusInfo, error) {
+func (u *User) PostStatus(ctx context.Context, userID int64, message string) (*domain.StatusInfo, error) {
 	pipeline := u.Data.Redis.TxPipeline()
 	pipeline.HGet(ctx, common.UserInfoHashTable(userID), "username")
 	pipeline.Incr(ctx, common.StatusIDCounter)
@@ -111,6 +116,7 @@ func (u *User) PostSatus(ctx context.Context, userID int64, message string) (*do
 		return nil, err
 	}
 	u.syndicateStatus(ctx, userID, redis.Z{Score: float64(posted), Member: id})
+	// fmt.Println(u.Data.Redis.HGetAll(ctx, common.StatusInfoHashTable(id)).Val())
 	return &domain.StatusInfo{
 		ID:       id,
 		UserID:   userID,
@@ -137,6 +143,42 @@ func (u *User) syndicateStatus(ctx context.Context, uid int64, post redis.Z) err
 
 }
 
+func (u *User) DeleteStatus(ctx context.Context, userID int64, postID int64) error {
+	key := common.StatusInfoHashTable(postID)
+	lock := u.Data.AcquireLockWithTimeout(ctx, key, 1, 100)
+	if lock == "" {
+		return errors.New("concurrency errors")
+	}
+	defer u.Data.ReleaseLock(ctx, key, lock)
+	ownerID := u.Data.Redis.HGet(ctx, key, "userID").Val()
+
+	// fmt.Println(ownerID)
+	ownerIDNum, _ := strconv.ParseInt(ownerID, 10, 64)
+	if ownerIDNum != userID {
+		return errors.New("can't delete someone else's status")
+	}
+	pipeline := u.Data.Redis.TxPipeline()
+	pipeline.Del(ctx, key)
+	pipeline.ZRem(ctx, common.UserProfileZSet(userID), postID)
+
+	pipeline.HIncrBy(ctx, common.UserInfoHashTable(userID), "posts", -1)
+	pipeline.ZRangeByScoreWithScores(ctx, common.FollowerZSet(userID),
+		&redis.ZRangeBy{Min: "0", Max: "inf"})
+	res, err := pipeline.Exec(ctx)
+	if err != nil {
+		return err
+	}
+	followers := res[3].(*redis.ZSliceCmd).Val()
+	for _, z := range followers {
+		fmt.Println(z.Member)
+		follower := z.Member.(string)
+		followerID, _ := strconv.ParseInt(follower, 10, 64)
+		pipeline.ZRem(ctx, common.HomeTimelineZSet(followerID), postID)
+	}
+	pipeline.ZRem(ctx, common.HomeTimelineZSet(userID), postID)
+	_, err = pipeline.Exec(ctx)
+	return err
+}
 func (u *User) GetTimeline(ctx context.Context, userID int64, pageID int32, pageSize int32) ([]*domain.StatusInfo, error) {
 	statuses := u.Data.Redis.ZRevRange(ctx, common.HomeTimelineZSet(userID),
 		int64((pageID-1)*pageSize), int64(pageID*pageSize)-1).Val()

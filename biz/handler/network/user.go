@@ -101,7 +101,7 @@ func PostStatus(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	userID, err := getUserID(c)
-	res, err := logic.NewUser(data.Default()).PostSatus(ctx, userID, req.Message)
+	res, err := logic.NewUser(data.Default()).PostStatus(ctx, userID, req.Message)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_PostStatusError
 		resp.ErrMsg = err.Error()
@@ -184,4 +184,28 @@ func FollowAndUnfollow(ctx context.Context, c *app.RequestContext) {
 // @router /api/v1/reset [DELETE]
 func Reset(ctx context.Context, c *app.RequestContext) {
 	logic.NewUser(data.Default()).Reset(ctx)
+}
+
+// DeleteStatus .
+// @router /api/v1/user/post [DELETE]
+func DeleteStatus(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.DeleteStatusReq
+	err = c.BindAndValidate(&req)
+	resp := new(base.BaseResp)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	err = logic.NewUser(data.Default()).DeleteStatus(ctx, userID, req.PostID)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_DeleteStatusError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
 }
