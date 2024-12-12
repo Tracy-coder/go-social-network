@@ -261,10 +261,47 @@ func (u *User) UnFollowAction(ctx context.Context, userID int64, otherID int64) 
 		pipeline.ZRem(ctx, common.HomeTimelineZSet(userID), status)
 
 	}
-	//TODO:填充时间线
 
 	if res, err := pipeline.Exec(ctx); err != nil {
 		return fmt.Errorf("pipeline error in unfollow action:%s %s", err, res)
+	}
+	return u.refillTimeline(ctx, userID)
+}
+
+func (u *User) refillTimeline(ctx context.Context, userID int64) error {
+	followers := u.Data.Redis.ZRange(ctx, common.FollowerZSet(userID), 0, -1).Val()
+	pipeline := u.Data.Redis.TxPipeline()
+	posts := make([]string, 0)
+
+	for _, follower := range followers {
+		pipeline.ZRange(ctx, common.UserProfileStringZSet(follower), 0, common.HomeTimelineSize)
+	}
+	res, err := pipeline.Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("pipeline error in refill timeline:%s %s", err, res)
+	}
+
+	for _, cmd := range res {
+		tmp := cmd.(*redis.StringSliceCmd).Val()
+		posts = append(posts, tmp...)
+	}
+	fmt.Println(posts)
+	pipeline = u.Data.Redis.TxPipeline()
+	for _, id := range posts {
+		pipeline.HGet(ctx, common.StatusInfoStringHashTable(id), "posted")
+	}
+	res, err = pipeline.Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("pipeline error in refill timeline:%s %s", err, res)
+	}
+	for i, cmd := range res {
+		postedString := cmd.(*redis.StringCmd).Val()
+		posted, _ := strconv.ParseUint(postedString, 10, 64)
+		pipeline.ZAdd(ctx, common.HomeTimelineZSet(userID), redis.Z{Score: float64(posted), Member: posts[i]})
+	}
+	pipeline.ZRemRangeByRank(ctx, common.HomeTimelineZSet(userID), 0, -common.HomeTimelineSize-1)
+	if _, err := pipeline.Exec(ctx); err != nil {
+		return fmt.Errorf("pipeline error in refill timeline:%s", err)
 	}
 	return nil
 }

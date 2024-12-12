@@ -28,6 +28,10 @@ func UserProfileZSet(id int64) string {
 	return fmt.Sprintf("profile:%d", id)
 }
 
+func UserProfileStringZSet(id string) string {
+	return fmt.Sprintf("profile:%s", id)
+}
+
 func HomeTimelineZSet(id int64) string {
 	return fmt.Sprintf("home:%d", id)
 }
