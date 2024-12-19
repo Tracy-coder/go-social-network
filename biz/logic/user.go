@@ -2,12 +2,14 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go-social-network/biz/common"
 	"go-social-network/biz/domain"
 	"go-social-network/data"
 	"go-social-network/pkg/encrypt"
+	"log"
 	"strconv"
 	"time"
 
@@ -132,7 +134,7 @@ func (u *User) syndicateStatus(ctx context.Context, uid int64, post redis.Z) err
 
 	pipeline := u.Data.Redis.TxPipeline()
 	for _, z := range followers {
-		fmt.Println(z.Member)
+		// fmt.Println(z.Member)
 		follower := z.Member.(string)
 		followerID, _ := strconv.ParseInt(follower, 10, 64)
 		pipeline.ZAdd(ctx, common.HomeTimelineZSet(followerID), post)
@@ -170,7 +172,7 @@ func (u *User) DeleteStatus(ctx context.Context, userID int64, postID int64) err
 	}
 	followers := res[3].(*redis.ZSliceCmd).Val()
 	for _, z := range followers {
-		fmt.Println(z.Member)
+		// fmt.Println(z.Member)
 		follower := z.Member.(string)
 		followerID, _ := strconv.ParseInt(follower, 10, 64)
 		pipeline.ZRem(ctx, common.HomeTimelineZSet(followerID), postID)
@@ -184,7 +186,7 @@ func (u *User) GetTimeline(ctx context.Context, userID int64, pageID int32, page
 		int64((pageID-1)*pageSize), int64(pageID*pageSize)-1).Val()
 	pipeline := u.Data.Redis.TxPipeline()
 	for _, id := range statuses {
-		pipeline.HGetAll(ctx, common.StatusInfoStringHashTable(id))
+		pipeline.HGetAll(ctx, common.StatusInfoHashTable(id))
 	}
 	res, err := pipeline.Exec(ctx)
 	// fmt.Println(res)
@@ -225,7 +227,7 @@ func (u *User) FollowAction(ctx context.Context, userID int64, otherID int64) er
 	}
 	following, followers, statusAndScore :=
 		res[0].(*redis.IntCmd).Val(), res[1].(*redis.IntCmd).Val(), res[2].(*redis.ZSliceCmd).Val()
-	fmt.Println(statusAndScore)
+	// fmt.Println(statusAndScore)
 	pipeline.HIncrBy(ctx, common.UserInfoHashTable(userID), "following", following)
 	pipeline.HIncrBy(ctx, common.UserInfoHashTable(otherID), "followers", followers)
 	if len(statusAndScore) != 0 {
@@ -274,7 +276,7 @@ func (u *User) refillTimeline(ctx context.Context, userID int64) error {
 	posts := make([]string, 0)
 
 	for _, follower := range followers {
-		pipeline.ZRange(ctx, common.UserProfileStringZSet(follower), 0, common.HomeTimelineSize)
+		pipeline.ZRange(ctx, common.UserProfileZSet(follower), 0, common.HomeTimelineSize)
 	}
 	res, err := pipeline.Exec(ctx)
 	if err != nil {
@@ -288,7 +290,7 @@ func (u *User) refillTimeline(ctx context.Context, userID int64) error {
 	fmt.Println(posts)
 	pipeline = u.Data.Redis.TxPipeline()
 	for _, id := range posts {
-		pipeline.HGet(ctx, common.StatusInfoStringHashTable(id), "posted")
+		pipeline.HGet(ctx, common.StatusInfoHashTable(id), "posted")
 	}
 	res, err = pipeline.Exec(ctx)
 	if err != nil {
@@ -302,6 +304,136 @@ func (u *User) refillTimeline(ctx context.Context, userID int64) error {
 	pipeline.ZRemRangeByRank(ctx, common.HomeTimelineZSet(userID), 0, -common.HomeTimelineSize-1)
 	if _, err := pipeline.Exec(ctx); err != nil {
 		return fmt.Errorf("pipeline error in refill timeline:%s", err)
+	}
+	return nil
+}
+
+func (u *User) CreateChat(ctx context.Context, ownerID int64, membersID []int64) (int64, error) {
+	chatID := int64(u.Data.Redis.Incr(ctx, common.ChatIDCounter).Val())
+	membersID = append(membersID, ownerID)
+	var recipientsd []redis.Z
+	for _, r := range membersID {
+		temp := redis.Z{
+			Score:  0,
+			Member: r,
+		}
+		recipientsd = append(recipientsd, temp)
+	}
+
+	pipeline := u.Data.Redis.TxPipeline()
+	pipeline.ZAdd(ctx, common.ChatMembersZSet(chatID), recipientsd...)
+	for _, id := range membersID {
+		pipeline.ZAdd(ctx, common.UserLastSeenZset(id), redis.Z{Member: chatID, Score: 0})
+	}
+	if _, err := pipeline.Exec(ctx); err != nil {
+		return -1, fmt.Errorf("pipeline err in CreateChat: %s", err)
+	}
+	return chatID, nil
+}
+
+func (u *User) PostMessage(ctx context.Context, userID int64, chatID int64, message string) (*domain.MessageInfo, error) {
+	_, err := u.Data.Redis.ZScore(ctx, common.ChatMembersZSet(chatID), fmt.Sprintf("%d", userID)).Result()
+	if err == redis.Nil {
+		return nil, fmt.Errorf("can't send messages in that group")
+	}
+	messageID := u.Data.Redis.Incr(ctx, common.MessageIDCounter(chatID)).Val()
+	ts := time.Now().UnixNano()
+	packed := domain.MessageInfo{
+		ID:        messageID,
+		CreatedAt: uint64(ts),
+		Content:   message,
+		SenderID:  userID,
+		ChatID:    chatID,
+	}
+
+	jsonValue, err := json.Marshal(packed)
+	if err != nil {
+		log.Println("marshal err in SendMessage: ", err)
+	}
+	fmt.Println(jsonValue, messageID, chatID)
+	u.Data.Redis.ZAdd(ctx, common.MessageInChatZset(chatID), redis.Z{Member: jsonValue, Score: float64(messageID)}).Val()
+	return &domain.MessageInfo{
+		ID:        messageID,
+		CreatedAt: uint64(ts),
+		Content:   message,
+		SenderID:  userID,
+		ChatID:    chatID,
+	}, nil
+}
+
+func (u *User) GetPendingMessage(ctx context.Context, userID int64) (*[]domain.ChatMessageInfo, error) {
+	seen := u.Data.Redis.ZRangeWithScores(ctx, common.UserLastSeenZset(userID), 0, -1).Val()
+	pipeline := u.Data.Redis.TxPipeline()
+	res := []*redis.StringSliceCmd{}
+	length := len(seen)
+	temp := make([]string, 0, length)
+
+	for _, v := range seen {
+		chatID := v.Member.(string)
+		seenID := v.Score
+		res = append(res, pipeline.ZRangeByScore(ctx, common.MessageInChatZset(chatID), &redis.ZRangeBy{Min: strconv.Itoa(int(seenID) + 1), Max: "inf"}))
+		// fmt.Println(res)
+		temp = append(temp, chatID)
+	}
+	if _, err := pipeline.Exec(ctx); err != nil {
+		return nil, fmt.Errorf("Pipeline error in GetPendingMessage:%s", err)
+	}
+	fmt.Println(res)
+
+	result := make([]domain.ChatMessageInfo, len(temp))
+
+	for i := 0; i < len(temp); i++ {
+		if len(res[i].Val()) == 0 {
+			continue
+		}
+		messages := []domain.MessageInfo{}
+		for _, v := range res[i].Val() {
+			message := domain.MessageInfo{}
+			if err := json.Unmarshal([]byte(v), &message); err != nil {
+				return nil, fmt.Errorf("Unmarshal error in GetPendingMessage:%s", err)
+			}
+			messages = append(messages, message)
+		}
+
+		chatID := temp[i]
+		seenID := float64(messages[len(messages)-1].ID)
+		u.Data.Redis.ZAdd(ctx, common.ChatMembersZSet(chatID), redis.Z{Member: userID, Score: seenID})
+
+		minID := u.Data.Redis.ZRangeWithScores(ctx, common.ChatMembersZSet(chatID), 0, 0).Val()
+
+		u.Data.Redis.ZAdd(ctx, common.UserLastSeenZset(userID), redis.Z{Member: chatID, Score: seenID})
+		if minID != nil {
+			u.Data.Redis.ZRemRangeByScore(ctx, common.MessageInChatZset(chatID), "0", strconv.Itoa(int(minID[0].Score)))
+		}
+		result[i].Info = messages
+	}
+	// fmt.Println("result:", result)
+	return &result, nil
+}
+
+func (u *User) LeaveChat(ctx context.Context, userID, chatID int64) error {
+	_, err := u.Data.Redis.ZScore(ctx, common.ChatMembersZSet(chatID), fmt.Sprintf("%d", userID)).Result()
+	if err == redis.Nil {
+		return fmt.Errorf("You've left the group")
+	}
+	pipeline := u.Data.Redis.TxPipeline()
+	pipeline.ZRem(ctx, common.ChatMembersZSet(chatID), userID)
+	pipeline.ZRem(ctx, common.UserLastSeenZset(userID), chatID)
+	res := pipeline.ZCard(ctx, common.ChatMembersZSet(chatID)).Val()
+	if _, err := pipeline.Exec(ctx); err != nil {
+		return fmt.Errorf("pipeline err in LeaveChat: %s", err)
+	}
+
+	if res == 0 {
+		pipeline.Del(ctx, common.MessageInChatZset(chatID))
+		pipeline.Del(ctx, common.MessageIDCounter(chatID))
+		pipeline.Del(ctx, common.ChatMembersZSet(chatID))
+		if _, err := pipeline.Exec(ctx); err != nil {
+			return fmt.Errorf("pipeline err in LeaveChat: %s", err)
+		}
+	} else {
+		oldest := u.Data.Redis.ZRangeWithScores(ctx, common.ChatMembersZSet(chatID), 0, 0).Val()[0]
+		u.Data.Redis.ZRemRangeByScore(ctx, common.MessageInChatZset(chatID), "0", strconv.Itoa(int(oldest.Score)))
 	}
 	return nil
 }

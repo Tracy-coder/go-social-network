@@ -77,7 +77,6 @@ func (d *Data) ReleaseLock(ctx context.Context, lockname, identifier string) boo
 			return true
 		}
 	}
-	return true
 }
 
 // NewData .

@@ -13,6 +13,11 @@ enum ErrCode {
   GetTimelineError = 6;
   FollowAndUnfollowError = 7;
   DeleteStatusError = 8;
+  CreateChatError = 9;
+  UnauthorizedError = 10;
+  PostMessageError = 11;
+  GetPendingMessageError = 12;
+  LeaveStatusError = 13;
 }
 
 

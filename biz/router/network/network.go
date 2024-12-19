@@ -25,6 +25,10 @@ func Register(r *server.Hertz) {
 			_v1.DELETE("/reset", append(_resetMw(), network.Reset)...)
 			{
 				_user := _v1.Group("/user", _userMw()...)
+				_user.DELETE("/chat", append(_leavechatMw(), network.LeaveChat)...)
+				_user.GET("/chat", append(_getpendingmessageMw(), network.GetPendingMessage)...)
+				_user.POST("/chat", append(_postmessageMw(), network.PostMessage)...)
+				_user.POST("/chats", append(_createchatMw(), network.CreateChat)...)
 				_user.POST("/follow", append(_followandunfollowMw(), network.FollowAndUnfollow)...)
 				_user.GET("/info", append(_userinfoMw(), network.UserInfo)...)
 				_user.DELETE("/post", append(_deletestatusMw(), network.DeleteStatus)...)

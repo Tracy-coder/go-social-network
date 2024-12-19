@@ -33,6 +33,16 @@ type StatusInfo struct {
 	Posted   uint64
 }
 
+type MessageInfo struct {
+	ID        int64
+	CreatedAt uint64
+	Content   string
+	SenderID  int64
+	ChatID    int64
+}
+type ChatMessageInfo struct {
+	Info []MessageInfo
+}
 type User interface {
 	Reset(ctx context.Context)
 	Register(ctx context.Context, req UserRegisterReq) error
@@ -43,4 +53,8 @@ type User interface {
 	GetTimeline(ctx context.Context, userID int64, pageID int32, pageSize int32) ([]*StatusInfo, error)
 	FollowAction(ctx context.Context, userID int64, otherID int64) error
 	UnFollowAction(ctx context.Context, userID int64, otherID int64) error
+	CreateChat(ctx context.Context, ownerID int64, membersID []int64) (int64, error)
+	PostMessage(ctx context.Context, userID int64, chatID int64, message string) (*MessageInfo, error)
+	GetPendingMessage(ctx context.Context, userID int64) (*[]ChatMessageInfo, error)
+	LeaveChat(ctx context.Context, userID, chatID int64) error
 }

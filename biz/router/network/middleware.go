@@ -63,3 +63,23 @@ func _deletestatusMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _leavechatMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getpendingmessageMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _postmessageMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _createchatMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

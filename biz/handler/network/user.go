@@ -5,6 +5,7 @@ package network
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 
 	domain "go-social-network/biz/domain"
@@ -57,6 +58,12 @@ func UserInfo(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
 	info, err := logic.NewUser(data.Default()).UserInfo(ctx, userID)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_GetUserInfoError
@@ -101,6 +108,12 @@ func PostStatus(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
 	res, err := logic.NewUser(data.Default()).PostStatus(ctx, userID, req.Message)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_PostStatusError
@@ -132,6 +145,12 @@ func GetTimeline(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
 	res, err := logic.NewUser(data.Default()).GetTimeline(ctx, userID, req.PageID, req.PageSize)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_GetTimelineError
@@ -166,6 +185,12 @@ func FollowAndUnfollow(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
 	if req.Action == true {
 		err = logic.NewUser(data.Default()).FollowAction(ctx, userID, req.OtherID)
 	} else {
@@ -200,9 +225,156 @@ func DeleteStatus(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
 	err = logic.NewUser(data.Default()).DeleteStatus(ctx, userID, req.PostID)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_DeleteStatusError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// CreateChat .
+// @router /api/v1/user/chats [POST]
+func CreateChat(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.CreateChatReq
+	err = c.BindAndValidate(&req)
+	resp := new(network.CreateChatResp)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	chatID, err := logic.NewUser(data.Default()).CreateChat(ctx, userID, req.MemberID)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CreateChatError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp.ID = chatID
+	c.JSON(consts.StatusOK, resp)
+}
+
+// PostMessage .
+// @router /api/v1/user/chat [POST]
+func PostMessage(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.PostMessageReq
+	err = c.BindAndValidate(&req)
+	resp := new(network.PostMessageResp)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	fmt.Println(req.ID, req.Message)
+	info, err := logic.NewUser(data.Default()).PostMessage(ctx, userID, req.ID, req.Message)
+
+	if err != nil {
+		resp.ErrCode = base.ErrCode_PostMessageError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	info_ := new(network.MessageInfo)
+	err = copier.Copy(info_, &info)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CopierError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp.Info = info_
+	c.JSON(consts.StatusOK, resp)
+}
+
+// GetPendingMessage .
+// @router /api/v1/user/chat [GET]
+func GetPendingMessage(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.GetPendingMessageReq
+	err = c.BindAndValidate(&req)
+	resp := new(network.GetPendingMessageResp)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	info, err := logic.NewUser(data.Default()).GetPendingMessage(ctx, userID)
+
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CreateChatError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp.Info = make([]*network.ChatMessageInfo, len(*info))
+	for i := 0; i < len(*info); i++ {
+		tmp := new(network.ChatMessageInfo)
+		copier.Copy(tmp, (*info)[i])
+		resp.Info[i] = tmp
+	}
+
+	c.JSON(consts.StatusOK, resp)
+}
+
+// LeaveChat .
+// @router /api/v1/user/chat [DELETE]
+func LeaveChat(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.LeaveChatReq
+	err = c.BindAndValidate(&req)
+	resp := new(base.BaseResp)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	err = logic.NewUser(data.Default()).LeaveChat(ctx, userID, req.ID)
+
+	if err != nil {
+		resp.ErrCode = base.ErrCode_LeaveStatusError
 		resp.ErrMsg = err.Error()
 		c.JSON(consts.StatusInternalServerError, resp)
 		return
