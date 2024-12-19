@@ -4,14 +4,26 @@ package main
 
 import (
 	"go-social-network/data"
+	"time"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/hertz-contrib/cors"
+	"github.com/hertz-contrib/logger/accesslog"
 )
 
 func main() {
 	data.Init()
 	h := server.Default()
-
+	h.Use(accesslog.New(accesslog.WithFormat("[${time}] ${status} - ${latency} ${method} ${path} ${queryParams}")))
+	h.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:8080"},
+		AllowMethods:     []string{"*"},
+		AllowHeaders:     []string{"*"},
+		ExposeHeaders:    []string{"*"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 	register(h)
+
 	h.Spin()
 }
