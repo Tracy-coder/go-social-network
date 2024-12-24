@@ -381,3 +381,43 @@ func LeaveChat(ctx context.Context, c *app.RequestContext) {
 	}
 	c.JSON(consts.StatusOK, resp)
 }
+
+// GetProfile .
+// @router /api/v1/user/profile [GET]
+func GetProfile(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.GetProfileReq
+	err = c.BindAndValidate(&req)
+	resp := new(network.GetProfileResp)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	res, err := logic.NewUser(data.Default()).GetProfile(ctx, userID, req.PageID, req.PageSize)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_GetTimelineError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	info := make([]*network.StatusInfo, len(res))
+	err = copier.Copy(&info, res)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CopierError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp.Info = info
+	resp.PageID = req.PageID
+	c.JSON(consts.StatusOK, resp)
+}

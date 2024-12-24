@@ -33,6 +33,7 @@ func Register(r *server.Hertz) {
 				_user.GET("/info", append(_userinfoMw(), network.UserInfo)...)
 				_user.DELETE("/post", append(_deletestatusMw(), network.DeleteStatus)...)
 				_user.POST("/post", append(_poststatusMw(), network.PostStatus)...)
+				_user.GET("/profile", append(_getprofileMw(), network.GetProfile)...)
 				_user.GET("/timeline", append(_gettimelineMw(), network.GetTimeline)...)
 			}
 		}

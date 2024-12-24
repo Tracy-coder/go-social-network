@@ -83,3 +83,8 @@ func _createchatMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _getprofileMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

@@ -44,7 +44,10 @@ message GetTimelineReq{
   int32 pageID = 1;
   int32 pageSize = 2;
 }
-
+message GetProfileReq{
+  int32 pageID = 1;
+  int32 pageSize = 2;
+}
 message StatusInfo{
   int64 ID = 1;
   int64 userID = 2; 
@@ -53,6 +56,13 @@ message StatusInfo{
   uint64 posted = 5;
 }
 message GetTimelineResp{
+  base.ErrCode errCode = 1;
+  string errMsg = 2;
+  int32 pageID = 3;
+  repeated StatusInfo info= 4;
+}
+
+message GetProfileResp{
   base.ErrCode errCode = 1;
   string errMsg = 2;
   int32 pageID = 3;
@@ -129,6 +139,9 @@ service user{
   }
   rpc GetTimeline(GetTimelineReq)returns(GetTimelineResp){
     option (api.get) = "/api/v1/user/timeline";
+  }
+  rpc GetProfile(GetProfileReq)returns(GetProfileResp){
+    option (api.get) = "/api/v1/user/profile";
   }
   rpc FollowAndUnfollow(FollowAndUnfollowReq) returns(base.BaseResp){
     option (api.post) = "/api/v1/user/follow";

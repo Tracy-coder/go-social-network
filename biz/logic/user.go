@@ -211,6 +211,36 @@ func (u *User) GetTimeline(ctx context.Context, userID int64, pageID int32, page
 	return info, nil
 }
 
+func (u *User) GetProfile(ctx context.Context, userID int64, pageID int32, pageSize int32) ([]*domain.StatusInfo, error) {
+	statuses := u.Data.Redis.ZRevRange(ctx, common.UserProfileZSet(userID),
+		int64((pageID-1)*pageSize), int64(pageID*pageSize)-1).Val()
+	pipeline := u.Data.Redis.TxPipeline()
+	for _, id := range statuses {
+		pipeline.HGetAll(ctx, common.StatusInfoHashTable(id))
+	}
+	res, err := pipeline.Exec(ctx)
+	// fmt.Println(res)
+	if err != nil {
+		return nil, err
+	}
+	info := make([]*domain.StatusInfo, len(res))
+
+	for i, val := range res {
+		temp := val.(*redis.MapStringStringCmd).Val()
+		id, _ := strconv.ParseInt(temp["id"], 10, 64)
+		userID, _ := strconv.ParseInt(temp["userID"], 10, 64)
+		posted, _ := strconv.ParseUint(temp["posted"], 10, 64)
+		info[i] = &domain.StatusInfo{
+			ID:       id,
+			UserID:   userID,
+			Username: temp["username"],
+			Message:  temp["message"],
+			Posted:   posted,
+		}
+	}
+	return info, nil
+}
+
 func (u *User) FollowAction(ctx context.Context, userID int64, otherID int64) error {
 	if u.Data.Redis.ZScore(ctx, common.FollowingZSet(userID), fmt.Sprintf("%d", otherID)).Val() != 0 {
 		return errors.New("duplicate follow")

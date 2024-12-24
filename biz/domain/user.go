@@ -51,6 +51,7 @@ type User interface {
 	PostStatus(ctx context.Context, userID int64, message string) (*StatusInfo, error)
 	DeleteStatus(ctx context.Context, userID int64, postID int64) error
 	GetTimeline(ctx context.Context, userID int64, pageID int32, pageSize int32) ([]*StatusInfo, error)
+	GetProfile(ctx context.Context, userID int64, pageID int32, pageSize int32) ([]*StatusInfo, error)
 	FollowAction(ctx context.Context, userID int64, otherID int64) error
 	UnFollowAction(ctx context.Context, userID int64, otherID int64) error
 	CreateChat(ctx context.Context, ownerID int64, membersID []int64) (int64, error)
