@@ -1,6 +1,7 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 import userModule from './module/user';
+import statusModule from './module/status';
 
 Vue.use(Vuex);
 
@@ -14,5 +15,6 @@ export default new Vuex.Store({
   },
   modules: {
     userModule,
+    statusModule,
   },
 });

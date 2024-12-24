@@ -1,7 +1,7 @@
 import request from '@/utils/request';
 
 const register = ({ email, password, username }) => {
-  console.log(username, password, email);
+  // console.log(username, password, email);
   return request.post('/api/v1/register', { username, email, password });
 };
 
