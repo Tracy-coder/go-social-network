@@ -3,6 +3,7 @@
 package main
 
 import (
+	"go-social-network/biz/logic"
 	"go-social-network/data"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 
 func main() {
 	data.Init()
+	go logic.Consumer4SyndicateStatus()
 	h := server.Default()
 	h.Use(accesslog.New(accesslog.WithFormat("[${time}] ${status} - ${latency} ${method} ${path} ${queryParams}")))
 	h.Use(cors.New(cors.Config{

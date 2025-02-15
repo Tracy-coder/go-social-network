@@ -74,6 +74,7 @@ type Config struct {
 	Host     string     `yaml:"Host"`
 	Port     int        `yaml:"Port"`
 	Timeout  int        `yaml:"Timeout"`
+	CronExpr string     `yaml:"CronExpr"`
 	Captcha  Captcha    `yaml:"Captcha"`
 	Redis    Redis      `yaml:"Redis"`
 	Database Database   `yaml:"Database"`

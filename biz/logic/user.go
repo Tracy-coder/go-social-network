@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"go-social-network/biz/common"
 	"go-social-network/biz/domain"
+	"go-social-network/configs"
 	"go-social-network/data"
 	"go-social-network/pkg/encrypt"
 	"log"
 	"strconv"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -117,7 +119,7 @@ func (u *User) PostStatus(ctx context.Context, userID int64, message string) (*d
 	if _, err := pipeline.Exec(ctx); err != nil {
 		return nil, err
 	}
-	u.syndicateStatus(ctx, userID, redis.Z{Score: float64(posted), Member: id})
+	u.syndicateStatus(userID, float64(posted), id, 1)
 	// fmt.Println(u.Data.Redis.HGetAll(ctx, common.StatusInfoHashTable(id)).Val())
 	return &domain.StatusInfo{
 		ID:       id,
@@ -128,19 +130,19 @@ func (u *User) PostStatus(ctx context.Context, userID int64, message string) (*d
 	}, nil
 }
 
-func (u *User) syndicateStatus(ctx context.Context, uid int64, post redis.Z) error {
-	followers := u.Data.Redis.ZRangeByScoreWithScores(ctx, common.FollowerZSet(uid),
-		&redis.ZRangeBy{Min: "0", Max: "inf"}).Val()
-
-	pipeline := u.Data.Redis.TxPipeline()
-	for _, z := range followers {
-		// fmt.Println(z.Member)
-		follower := z.Member.(string)
-		followerID, _ := strconv.ParseInt(follower, 10, 64)
-		pipeline.ZAdd(ctx, common.HomeTimelineZSet(followerID), post)
-		pipeline.ZRemRangeByRank(ctx, common.HomeTimelineZSet(followerID), 0, -common.HomeTimelineSize-1)
+func (u *User) syndicateStatus(uid int64, posted float64, statusID int64, op int64) error {
+	msg := StatusReqInKafka{
+		UserID:   uid,
+		Score:    posted,
+		StatusID: statusID,
+		Op:       op,
 	}
-	_, err := pipeline.Exec(ctx)
+	json_msg, _ := json.Marshal(msg)
+	_, _, err := SyndicateStatusKafkaProducer.SendMessage(&sarama.ProducerMessage{
+		Topic: configs.Data().Kafka.Topic,
+		Key:   sarama.StringEncoder(json_msg),
+		Value: sarama.StringEncoder(json_msg),
+	})
 	return err
 
 }
@@ -164,21 +166,12 @@ func (u *User) DeleteStatus(ctx context.Context, userID int64, postID int64) err
 	pipeline.ZRem(ctx, common.UserProfileZSet(userID), postID)
 
 	pipeline.HIncrBy(ctx, common.UserInfoHashTable(userID), "posts", -1)
-	pipeline.ZRangeByScoreWithScores(ctx, common.FollowerZSet(userID),
-		&redis.ZRangeBy{Min: "0", Max: "inf"})
-	res, err := pipeline.Exec(ctx)
+
+	_, err := pipeline.Exec(ctx)
 	if err != nil {
 		return err
 	}
-	followers := res[3].(*redis.ZSliceCmd).Val()
-	for _, z := range followers {
-		// fmt.Println(z.Member)
-		follower := z.Member.(string)
-		followerID, _ := strconv.ParseInt(follower, 10, 64)
-		pipeline.ZRem(ctx, common.HomeTimelineZSet(followerID), postID)
-	}
-	pipeline.ZRem(ctx, common.HomeTimelineZSet(userID), postID)
-	_, err = pipeline.Exec(ctx)
+	u.syndicateStatus(userID, float64(postID), 0, 2)
 	return err
 }
 func (u *User) GetTimeline(ctx context.Context, userID int64, pageID int32, pageSize int32) ([]*domain.StatusInfo, error) {
@@ -297,44 +290,7 @@ func (u *User) UnFollowAction(ctx context.Context, userID int64, otherID int64) 
 	if res, err := pipeline.Exec(ctx); err != nil {
 		return fmt.Errorf("pipeline error in unfollow action:%s %s", err, res)
 	}
-	return u.refillTimeline(ctx, userID)
-}
-
-func (u *User) refillTimeline(ctx context.Context, userID int64) error {
-	followers := u.Data.Redis.ZRange(ctx, common.FollowerZSet(userID), 0, -1).Val()
-	pipeline := u.Data.Redis.TxPipeline()
-	posts := make([]string, 0)
-
-	for _, follower := range followers {
-		pipeline.ZRange(ctx, common.UserProfileZSet(follower), 0, common.HomeTimelineSize)
-	}
-	res, err := pipeline.Exec(ctx)
-	if err != nil {
-		return fmt.Errorf("pipeline error in refill timeline:%s %s", err, res)
-	}
-
-	for _, cmd := range res {
-		tmp := cmd.(*redis.StringSliceCmd).Val()
-		posts = append(posts, tmp...)
-	}
-	fmt.Println(posts)
-	pipeline = u.Data.Redis.TxPipeline()
-	for _, id := range posts {
-		pipeline.HGet(ctx, common.StatusInfoHashTable(id), "posted")
-	}
-	res, err = pipeline.Exec(ctx)
-	if err != nil {
-		return fmt.Errorf("pipeline error in refill timeline:%s %s", err, res)
-	}
-	for i, cmd := range res {
-		postedString := cmd.(*redis.StringCmd).Val()
-		posted, _ := strconv.ParseUint(postedString, 10, 64)
-		pipeline.ZAdd(ctx, common.HomeTimelineZSet(userID), redis.Z{Score: float64(posted), Member: posts[i]})
-	}
-	pipeline.ZRemRangeByRank(ctx, common.HomeTimelineZSet(userID), 0, -common.HomeTimelineSize-1)
-	if _, err := pipeline.Exec(ctx); err != nil {
-		return fmt.Errorf("pipeline error in refill timeline:%s", err)
-	}
+	// return u.refillTimeline(ctx, userID)
 	return nil
 }
 
