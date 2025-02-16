@@ -25,6 +25,11 @@ type UserInfoResp struct {
 	Signup    uint64
 }
 
+type UserEntry struct {
+	ID       int64
+	Username string
+	IsFollow bool
+}
 type StatusInfo struct {
 	ID       int64
 	UserID   int64
@@ -54,6 +59,7 @@ type User interface {
 	GetProfile(ctx context.Context, userID int64, pageID int32, pageSize int32) ([]*StatusInfo, error)
 	FollowAction(ctx context.Context, userID int64, otherID int64) error
 	UnFollowAction(ctx context.Context, userID int64, otherID int64) error
+	SearchUser(ctx context.Context, userID int64, expr string) ([]*UserEntry, error)
 	CreateChat(ctx context.Context, ownerID int64, membersID []int64) (int64, error)
 	PostMessage(ctx context.Context, userID int64, chatID int64, message string) (*MessageInfo, error)
 	GetPendingMessage(ctx context.Context, userID int64) (*[]ChatMessageInfo, error)

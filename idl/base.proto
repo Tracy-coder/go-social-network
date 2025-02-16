@@ -17,7 +17,8 @@ enum ErrCode {
   UnauthorizedError = 10;
   PostMessageError = 11;
   GetPendingMessageError = 12;
-  LeaveStatusError = 13;
+  LeaveChatError = 13;
+  SearchUserError = 14;
 }
 
 

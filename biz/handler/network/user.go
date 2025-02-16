@@ -374,7 +374,7 @@ func LeaveChat(ctx context.Context, c *app.RequestContext) {
 	err = logic.NewUser(data.Default()).LeaveChat(ctx, userID, req.ID)
 
 	if err != nil {
-		resp.ErrCode = base.ErrCode_LeaveStatusError
+		resp.ErrCode = base.ErrCode_LeaveChatError
 		resp.ErrMsg = err.Error()
 		c.JSON(consts.StatusInternalServerError, resp)
 		return
@@ -419,5 +419,48 @@ func GetProfile(ctx context.Context, c *app.RequestContext) {
 	}
 	resp.Info = info
 	resp.PageID = req.PageID
+	c.JSON(consts.StatusOK, resp)
+}
+
+// SearchUser .
+// @router /api/v1/user/search [POST]
+func SearchUser(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.SearchUserReq
+
+	err = c.BindAndValidate(&req)
+	fmt.Println("searchUserReq:", req)
+	resp := new(network.SearchUserResp)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	res, err := logic.NewUser(data.Default()).SearchUser(ctx, userID, req.Expr)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_SearchUserError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	entries := make([]*network.UserEntry, len(res))
+	err = copier.Copy(&entries, res)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CopierError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp.UserEntries = entries
+	resp.ErrCode = base.ErrCode_Success
+	resp.ErrMsg = "success"
 	c.JSON(consts.StatusOK, resp)
 }

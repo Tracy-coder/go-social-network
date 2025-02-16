@@ -18,7 +18,7 @@ func main() {
 	h := server.Default()
 	h.Use(accesslog.New(accesslog.WithFormat("[${time}] ${status} - ${latency} ${method} ${path} ${queryParams}")))
 	h.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:8080"},
+		AllowOrigins:     []string{"http://localhost:8081"},
 		AllowMethods:     []string{"*"},
 		AllowHeaders:     []string{"*"},
 		ExposeHeaders:    []string{"*"},

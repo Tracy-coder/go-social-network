@@ -78,6 +78,21 @@ message DeleteStatusReq{
   int64 postID = 1;
 }
 
+message SearchUserReq{
+  string expr = 1;
+}
+
+message UserEntry{
+  int64 ID = 1;
+  string username = 2;
+  bool isFollow = 3;
+}
+
+message SearchUserResp{
+  base.ErrCode errCode = 1;
+  string errMsg = 2;
+  repeated UserEntry userEntries = 3;
+}
 message MessageInfo{
   int64 ID = 1;
   string content = 2;
@@ -142,6 +157,10 @@ service user{
   }
   rpc GetProfile(GetProfileReq)returns(GetProfileResp){
     option (api.get) = "/api/v1/user/profile";
+  }
+
+  rpc SearchUser(SearchUserReq)returns(SearchUserResp){
+    option (api.post) = "/api/v1/user/search";
   }
   rpc FollowAndUnfollow(FollowAndUnfollowReq) returns(base.BaseResp){
     option (api.post) = "/api/v1/user/follow";

@@ -235,6 +235,9 @@ func (u *User) GetProfile(ctx context.Context, userID int64, pageID int32, pageS
 }
 
 func (u *User) FollowAction(ctx context.Context, userID int64, otherID int64) error {
+	if userID == otherID {
+		return errors.New("can not follow yourself")
+	}
 	if u.Data.Redis.ZScore(ctx, common.FollowingZSet(userID), fmt.Sprintf("%d", otherID)).Val() != 0 {
 		return errors.New("duplicate follow")
 	}
@@ -265,6 +268,9 @@ func (u *User) FollowAction(ctx context.Context, userID int64, otherID int64) er
 }
 
 func (u *User) UnFollowAction(ctx context.Context, userID int64, otherID int64) error {
+	if userID == otherID {
+		return errors.New("can not unfollow yourself")
+	}
 	if u.Data.Redis.ZScore(ctx, common.FollowingZSet(userID), fmt.Sprintf("%d", otherID)).Val() == 0 {
 		return errors.New("duplicate unfollow")
 	}
@@ -293,7 +299,27 @@ func (u *User) UnFollowAction(ctx context.Context, userID int64, otherID int64) 
 	// return u.refillTimeline(ctx, userID)
 	return nil
 }
-
+func (u *User) SearchUser(ctx context.Context, userID int64, expr string) ([]*domain.UserEntry, error) {
+	res, _ := u.Data.Redis.HScan(ctx, "users:", 0, expr, -1).Val()
+	fmt.Println(expr)
+	// fmt.Println(res)
+	n := len(res)
+	entries := make([]*domain.UserEntry, 0)
+	for i := 0; i < n; i += 2 {
+		IDNum, _ := strconv.ParseInt(res[i+1], 10, 64)
+		if IDNum == userID {
+			continue
+		}
+		isFollow := u.Data.Redis.ZScore(ctx, common.FollowingZSet(userID), res[i+1]).Val()
+		fmt.Println(isFollow)
+		entries = append(entries, &domain.UserEntry{
+			Username: res[i],
+			ID:       IDNum,
+			IsFollow: isFollow != 0,
+		})
+	}
+	return entries, nil
+}
 func (u *User) CreateChat(ctx context.Context, ownerID int64, membersID []int64) (int64, error) {
 	chatID := int64(u.Data.Redis.Incr(ctx, common.ChatIDCounter).Val())
 	membersID = append(membersID, ownerID)
