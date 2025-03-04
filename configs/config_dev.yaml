@@ -14,7 +14,7 @@ Captcha:
 
 Redis:
   Enable: false
-  Host: 127.0.0.1
+  Host: redis1
   Port: 6379
   Type: node
   Password: root
@@ -47,6 +47,6 @@ Casbin:
 
 Kafka:
   Brokers:
-    - "localhost:9092"
+    - "kafka1:9092"
   Topic: "network"
   GroupID: "network_01"

@@ -45,7 +45,7 @@ func (u *User) Register(ctx context.Context, req domain.UserRegisterReq) error {
 	pipeline := u.Data.Redis.TxPipeline()
 	pipeline.HSet(ctx, common.Username2ID, req.Username, id)
 	pipeline.HMSet(ctx, common.UserInfoHashTable(id), "username", req.Username,
-		"id", id, "email", req.Email, "followers", 0, "following", 0, "posts", 0, "password", password,
+		"id", id, "email", req.Email, "followers", 0, "followings", 0, "friends", 0, "posts", 0, "password", password,
 		"signup", time.Now().UnixNano())
 	if _, err := pipeline.Exec(ctx); err != nil {
 		return fmt.Errorf("pipeline err in CreateUser: %s", err)
@@ -77,20 +77,22 @@ func (u *User) Login(ctx context.Context, username string, password string) (*do
 
 func (u *User) UserInfo(ctx context.Context, userID int64) (*domain.UserInfoResp, error) {
 	info := u.Data.Redis.HGetAll(ctx, common.UserInfoHashTable(userID)).Val()
-	followers, _ := strconv.ParseInt(info["followers"], 10, 64)
-	following, _ := strconv.ParseInt(info["following"], 10, 64)
+	followers, _ := strconv.ParseInt(info["followers"], 10, 32)
+	followings, _ := strconv.ParseInt(info["followings"], 10, 32)
+	friends, _ := strconv.ParseInt(info["friends"], 10, 32)
 	id, _ := strconv.ParseInt(info["id"], 10, 64)
-	posts, _ := strconv.ParseInt(info["posts"], 10, 64)
+	posts, _ := strconv.ParseInt(info["posts"], 10, 32)
 	signup, _ := strconv.ParseUint(info["signup"], 10, 64)
 	if info != nil {
 		return &domain.UserInfoResp{
-			ID:        id,
-			Username:  info["username"],
-			Email:     info["email"],
-			Followers: int32(followers),
-			Following: int32(following),
-			Posts:     int32(posts),
-			Signup:    signup,
+			ID:         id,
+			Username:   info["username"],
+			Email:      info["email"],
+			Followers:  int32(followers),
+			Followings: int32(followings),
+			Friends:    int32(friends),
+			Posts:      int32(posts),
+			Signup:     signup,
 		}, nil
 	}
 	return nil, errors.New("get user info error")
@@ -241,6 +243,8 @@ func (u *User) FollowAction(ctx context.Context, userID int64, otherID int64) er
 	if u.Data.Redis.ZScore(ctx, common.FollowingZSet(userID), fmt.Sprintf("%d", otherID)).Val() != 0 {
 		return errors.New("duplicate follow")
 	}
+	isMutual := u.Data.Redis.ZScore(ctx, common.FollowingZSet(otherID), fmt.Sprintf("%d", userID)).Val() != 0
+
 	now := time.Now().UnixNano()
 
 	pipeline := u.Data.Redis.TxPipeline()
@@ -254,8 +258,13 @@ func (u *User) FollowAction(ctx context.Context, userID int64, otherID int64) er
 	following, followers, statusAndScore :=
 		res[0].(*redis.IntCmd).Val(), res[1].(*redis.IntCmd).Val(), res[2].(*redis.ZSliceCmd).Val()
 	// fmt.Println(statusAndScore)
-	pipeline.HIncrBy(ctx, common.UserInfoHashTable(userID), "following", following)
+	fmt.Println("following:", following, followers)
+	pipeline.HIncrBy(ctx, common.UserInfoHashTable(userID), "followings", following)
 	pipeline.HIncrBy(ctx, common.UserInfoHashTable(otherID), "followers", followers)
+	if isMutual {
+		pipeline.HIncrBy(ctx, common.UserInfoHashTable(userID), "friends", 1)
+		pipeline.HIncrBy(ctx, common.UserInfoHashTable(otherID), "friends", 1)
+	}
 	if len(statusAndScore) != 0 {
 		pipeline.ZAdd(ctx, common.HomeTimelineZSet(userID), statusAndScore...)
 	}
@@ -274,7 +283,7 @@ func (u *User) UnFollowAction(ctx context.Context, userID int64, otherID int64) 
 	if u.Data.Redis.ZScore(ctx, common.FollowingZSet(userID), fmt.Sprintf("%d", otherID)).Val() == 0 {
 		return errors.New("duplicate unfollow")
 	}
-
+	isMutual := u.Data.Redis.ZScore(ctx, common.FollowingZSet(otherID), fmt.Sprintf("%d", userID)).Val() != 0
 	pipeline := u.Data.Redis.TxPipeline()
 	pipeline.ZRem(ctx, common.FollowingZSet(userID), fmt.Sprintf("%d", otherID))
 	pipeline.ZRem(ctx, common.FollowerZSet(otherID), fmt.Sprintf("%d", userID))
@@ -285,9 +294,13 @@ func (u *User) UnFollowAction(ctx context.Context, userID int64, otherID int64) 
 	}
 	following, followers, status :=
 		res[0].(*redis.IntCmd).Val(), res[1].(*redis.IntCmd).Val(), res[2].(*redis.StringSliceCmd).Val()
-
-	pipeline.HIncrBy(ctx, common.UserInfoHashTable(userID), "following", -following)
+	fmt.Println(following, followers)
+	pipeline.HIncrBy(ctx, common.UserInfoHashTable(userID), "followings", -following)
 	pipeline.HIncrBy(ctx, common.UserInfoHashTable(otherID), "followers", -followers)
+	if isMutual {
+		pipeline.HIncrBy(ctx, common.UserInfoHashTable(userID), "friends", -1)
+		pipeline.HIncrBy(ctx, common.UserInfoHashTable(otherID), "friends", -1)
+	}
 	if len(status) != 0 {
 		pipeline.ZRem(ctx, common.HomeTimelineZSet(userID), status)
 
@@ -320,6 +333,64 @@ func (u *User) SearchUser(ctx context.Context, userID int64, expr string) ([]*do
 	}
 	return entries, nil
 }
+
+func (u *User) GetFollowings(ctx context.Context, userID int64) ([]*domain.UserEntry, error) {
+	res := u.Data.Redis.ZRangeByScore(ctx, common.FollowingZSet(userID), &redis.ZRangeBy{Min: "0", Max: "inf"}).Val()
+	n := len(res)
+	entries := make([]*domain.UserEntry, 0)
+	for i := 0; i < n; i++ {
+		IDNum, _ := strconv.ParseInt(res[i], 10, 64)
+		username := u.Data.Redis.HGet(ctx, common.UserInfoHashTable(IDNum), "username").Val()
+
+		entries = append(entries, &domain.UserEntry{
+			Username: username,
+			ID:       IDNum,
+			IsFollow: true,
+		})
+	}
+	return entries, nil
+}
+
+func (u *User) GetFollowers(ctx context.Context, userID int64) ([]*domain.UserEntry, error) {
+	res := u.Data.Redis.ZRangeByScore(ctx, common.FollowerZSet(userID), &redis.ZRangeBy{Min: "0", Max: "inf"}).Val()
+	n := len(res)
+	entries := make([]*domain.UserEntry, 0)
+	for i := 0; i < n; i++ {
+		IDNum, _ := strconv.ParseInt(res[i], 10, 64)
+		isFollow := u.Data.Redis.ZScore(ctx, common.FollowingZSet(userID), res[i]).Val()
+		username := u.Data.Redis.HGet(ctx, common.UserInfoHashTable(IDNum), "username").Val()
+		entries = append(entries, &domain.UserEntry{
+			Username: username,
+			ID:       IDNum,
+			IsFollow: isFollow != 0,
+		})
+	}
+	return entries, nil
+}
+
+func (u *User) GetFriends(ctx context.Context, userID int64) ([]*domain.UserEntry, error) {
+	res, err := u.Data.Redis.ZInter(ctx, &redis.ZStore{
+		Keys:    []string{common.FollowerZSet(userID), common.FollowingZSet(userID)},
+		Weights: []float64{1, 1},
+	}).Result()
+	if err != nil {
+		return nil, fmt.Errorf("Get friends error:%s", err)
+	}
+	fmt.Println(res)
+	n := len(res)
+	entries := make([]*domain.UserEntry, 0)
+	for i := 0; i < n; i++ {
+		IDNum, _ := strconv.ParseInt(res[i], 10, 64)
+		username := u.Data.Redis.HGet(ctx, common.UserInfoHashTable(IDNum), "username").Val()
+		entries = append(entries, &domain.UserEntry{
+			Username: username,
+			ID:       IDNum,
+			IsFollow: true,
+		})
+	}
+	return entries, nil
+}
+
 func (u *User) CreateChat(ctx context.Context, ownerID int64, membersID []int64) (int64, error) {
 	chatID := int64(u.Data.Redis.Incr(ctx, common.ChatIDCounter).Val())
 	membersID = append(membersID, ownerID)
@@ -350,12 +421,14 @@ func (u *User) PostMessage(ctx context.Context, userID int64, chatID int64, mess
 	}
 	messageID := u.Data.Redis.Incr(ctx, common.MessageIDCounter(chatID)).Val()
 	ts := time.Now().UnixNano()
+	senderName := u.Data.Redis.HGet(ctx, common.UserInfoHashTable(userID), "username").Val()
 	packed := domain.MessageInfo{
-		ID:        messageID,
-		CreatedAt: uint64(ts),
-		Content:   message,
-		SenderID:  userID,
-		ChatID:    chatID,
+		ID:         messageID,
+		CreatedAt:  uint64(ts),
+		Content:    message,
+		SenderID:   userID,
+		ChatID:     chatID,
+		SenderName: senderName,
 	}
 
 	jsonValue, err := json.Marshal(packed)
@@ -364,78 +437,68 @@ func (u *User) PostMessage(ctx context.Context, userID int64, chatID int64, mess
 	}
 	fmt.Println(jsonValue, messageID, chatID)
 	u.Data.Redis.ZAdd(ctx, common.MessageInChatZset(chatID), redis.Z{Member: jsonValue, Score: float64(messageID)}).Val()
+	u.Data.Redis.ZAdd(ctx, common.ChatMembersZSet(chatID), redis.Z{Member: userID, Score: float64(messageID)})
+	u.Data.Redis.ZAdd(ctx, common.UserLastSeenZset(userID), redis.Z{Member: chatID, Score: float64(messageID)})
 	return &domain.MessageInfo{
-		ID:        messageID,
-		CreatedAt: uint64(ts),
-		Content:   message,
-		SenderID:  userID,
-		ChatID:    chatID,
+		ID:         messageID,
+		CreatedAt:  uint64(ts),
+		Content:    message,
+		SenderID:   userID,
+		ChatID:     chatID,
+		SenderName: senderName,
 	}, nil
 }
 
-func (u *User) GetPendingMessage(ctx context.Context, userID int64) (*[]domain.ChatMessageInfo, error) {
-	seen := u.Data.Redis.ZRangeWithScores(ctx, common.UserLastSeenZset(userID), 0, -1).Val()
-	pipeline := u.Data.Redis.TxPipeline()
-	res := []*redis.StringSliceCmd{}
-	length := len(seen)
-	temp := make([]string, 0, length)
+func (u *User) GetPendingMessage(ctx context.Context, userID int64, chatID int64) (*domain.ChatMessageInfo, error) {
+	// seen := u.Data.Redis.ZRangeWithScores(ctx, common.UserLastSeenZset(userID), 0, -1).Val()
+	seenID := u.Data.Redis.ZScore(ctx, common.UserLastSeenZset(userID), fmt.Sprintf("%d", chatID)).Val()
 
-	for _, v := range seen {
-		chatID := v.Member.(string)
-		seenID := v.Score
-		res = append(res, pipeline.ZRangeByScore(ctx, common.MessageInChatZset(chatID), &redis.ZRangeBy{Min: strconv.Itoa(int(seenID) + 1), Max: "inf"}))
-		// fmt.Println(res)
-		temp = append(temp, chatID)
+	fmt.Println("getpending: chatID & seenID ", chatID, seenID)
+	// res:=new(domain.ChatMessageInfo)
+	res := u.Data.Redis.ZRangeByScore(ctx, common.MessageInChatZset(chatID), &redis.ZRangeBy{Min: strconv.Itoa(int(seenID) + 1), Max: "inf"}).Val()
+	fmt.Println("getpending:", res)
+	if len(res) == 0 {
+		return nil, nil
 	}
-	if _, err := pipeline.Exec(ctx); err != nil {
-		return nil, fmt.Errorf("Pipeline error in GetPendingMessage:%s", err)
+	info := make([]domain.MessageInfo, len(res))
+
+	for i := 0; i < len(res); i++ {
+		message := domain.MessageInfo{}
+		if err := json.Unmarshal([]byte(res[i]), &message); err != nil {
+			return nil, fmt.Errorf("Unmarshal error in GetPendingMessage:%s", err)
+		}
+		info[i] = message
 	}
-	fmt.Println(res)
+	seenID = float64(info[len(info)-1].ID)
+	u.Data.Redis.ZAdd(ctx, common.ChatMembersZSet(chatID), redis.Z{Member: userID, Score: seenID})
 
-	result := make([]domain.ChatMessageInfo, len(temp))
+	minID := u.Data.Redis.ZRangeWithScores(ctx, common.ChatMembersZSet(chatID), 0, 0).Val()
 
-	for i := 0; i < len(temp); i++ {
-		if len(res[i].Val()) == 0 {
-			continue
-		}
-		messages := []domain.MessageInfo{}
-		for _, v := range res[i].Val() {
-			message := domain.MessageInfo{}
-			if err := json.Unmarshal([]byte(v), &message); err != nil {
-				return nil, fmt.Errorf("Unmarshal error in GetPendingMessage:%s", err)
-			}
-			messages = append(messages, message)
-		}
-
-		chatID := temp[i]
-		seenID := float64(messages[len(messages)-1].ID)
-		u.Data.Redis.ZAdd(ctx, common.ChatMembersZSet(chatID), redis.Z{Member: userID, Score: seenID})
-
-		minID := u.Data.Redis.ZRangeWithScores(ctx, common.ChatMembersZSet(chatID), 0, 0).Val()
-
-		u.Data.Redis.ZAdd(ctx, common.UserLastSeenZset(userID), redis.Z{Member: chatID, Score: seenID})
-		if minID != nil {
-			u.Data.Redis.ZRemRangeByScore(ctx, common.MessageInChatZset(chatID), "0", strconv.Itoa(int(minID[0].Score)))
-		}
-		result[i].Info = messages
+	u.Data.Redis.ZAdd(ctx, common.UserLastSeenZset(userID), redis.Z{Member: chatID, Score: seenID})
+	if minID != nil {
+		u.Data.Redis.ZRemRangeByScore(ctx, common.MessageInChatZset(chatID), "0", strconv.Itoa(int(minID[0].Score)))
 	}
+	result := new(domain.ChatMessageInfo)
+	result.Info = info
+
 	// fmt.Println("result:", result)
-	return &result, nil
+	return result, nil
 }
 
 func (u *User) LeaveChat(ctx context.Context, userID, chatID int64) error {
 	_, err := u.Data.Redis.ZScore(ctx, common.ChatMembersZSet(chatID), fmt.Sprintf("%d", userID)).Result()
+	fmt.Println("leave chat:", userID, chatID)
 	if err == redis.Nil {
 		return fmt.Errorf("You've left the group")
 	}
 	pipeline := u.Data.Redis.TxPipeline()
 	pipeline.ZRem(ctx, common.ChatMembersZSet(chatID), userID)
 	pipeline.ZRem(ctx, common.UserLastSeenZset(userID), chatID)
-	res := pipeline.ZCard(ctx, common.ChatMembersZSet(chatID)).Val()
+
 	if _, err := pipeline.Exec(ctx); err != nil {
 		return fmt.Errorf("pipeline err in LeaveChat: %s", err)
 	}
-
+	res := u.Data.Redis.ZCard(ctx, common.ChatMembersZSet(chatID)).Val()
 	if res == 0 {
 		pipeline.Del(ctx, common.MessageInChatZset(chatID))
 		pipeline.Del(ctx, common.MessageIDCounter(chatID))
@@ -448,4 +511,19 @@ func (u *User) LeaveChat(ctx context.Context, userID, chatID int64) error {
 		u.Data.Redis.ZRemRangeByScore(ctx, common.MessageInChatZset(chatID), "0", strconv.Itoa(int(oldest.Score)))
 	}
 	return nil
+}
+
+func (u *User) GetChatList(ctx context.Context, userID int64) ([]*domain.ChatEntry, error) {
+	res := u.Data.Redis.ZRangeWithScores(ctx, common.UserLastSeenZset(userID), 0, -1).Val()
+	n := len(res)
+	entries := make([]*domain.ChatEntry, n)
+	for i := 0; i < n; i++ {
+		id := res[i].Member.(string)
+		idNum, _ := strconv.ParseInt(id, 10, 64)
+		entries[i] = &domain.ChatEntry{
+			ID:        idNum,
+			UnseenMsg: 0,
+		}
+	}
+	return entries, nil
 }

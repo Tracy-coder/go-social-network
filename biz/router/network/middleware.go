@@ -93,3 +93,23 @@ func _searchuserMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _getfollowersMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getfollowingsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getfriendsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getchatlistMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

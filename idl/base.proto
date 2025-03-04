@@ -19,6 +19,10 @@ enum ErrCode {
   GetPendingMessageError = 12;
   LeaveChatError = 13;
   SearchUserError = 14;
+  GetFollowingsError = 15;
+  GetFollowersError = 16;
+  GetFriendsError = 17;
+  GetChatListError = 18;
 }
 
 

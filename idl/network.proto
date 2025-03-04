@@ -21,9 +21,10 @@ message UserInfoResp{
   string username = 4;
   string email = 5;
   int32 followers = 6;
-  int32 following = 7;
-  int32 posts = 8;
-  uint64 signup = 9;
+  int32 followings = 7;
+  int32 friends = 8;
+  int32 posts = 9;
+  uint64 signup = 10;
 }
 
 message PostStatusReq{
@@ -93,12 +94,32 @@ message SearchUserResp{
   string errMsg = 2;
   repeated UserEntry userEntries = 3;
 }
+
+message GetFollowingsResp{
+  base.ErrCode errCode = 1;
+  string errMsg = 2;
+  repeated UserEntry userEntries = 3;
+}
+
+message GetFollowersResp{
+  base.ErrCode errCode = 1;
+  string errMsg = 2;
+  repeated UserEntry userEntries = 3;
+}
+
+message GetFriendsResp{
+  base.ErrCode errCode = 1;
+  string errMsg = 2;
+  repeated UserEntry userEntries = 3;
+}
+
 message MessageInfo{
   int64 ID = 1;
   string content = 2;
   uint64 createdAt = 3;
   int64 senderID = 4;
-  int64 chatID = 5;
+  string senderName = 5;
+  int64 chatID = 6;
 }
 
 message ChatMessageInfo{
@@ -127,10 +148,19 @@ message GetPendingMessageReq{
   int64 ID = 1;
 }
 
+message ChatEntry{
+  int64 ID = 1;
+  int32 unseenMsg = 2;
+}
+message GetChatListResp{
+  base.ErrCode errCode = 1;
+  string errMsg = 2;
+  repeated ChatEntry info = 3;
+}
 message GetPendingMessageResp{
   base.ErrCode errCode = 1;
   string errMsg = 2;
-  repeated ChatMessageInfo info = 3;
+   ChatMessageInfo info = 3;
 }
 
 message LeaveChatReq{
@@ -158,16 +188,27 @@ service user{
   rpc GetProfile(GetProfileReq)returns(GetProfileResp){
     option (api.get) = "/api/v1/user/profile";
   }
-
+  rpc GetFollowings(Empty)returns(GetFollowingsResp){
+    option (api.get) = "/api/v1/user/followings";
+  }
+  rpc GetFollowers(Empty)returns(GetFollowersResp){
+    option (api.get) = "/api/v1/user/followers";
+  }
+  rpc GetFriends(Empty)returns(GetFriendsResp){
+    option (api.get) = "/api/v1/user/friends";
+  }
   rpc SearchUser(SearchUserReq)returns(SearchUserResp){
     option (api.post) = "/api/v1/user/search";
   }
   rpc FollowAndUnfollow(FollowAndUnfollowReq) returns(base.BaseResp){
     option (api.post) = "/api/v1/user/follow";
   }
-
+  
   rpc CreateChat(CreateChatReq)returns(CreateChatResp){
     option (api.post) = "/api/v1/user/chats";
+  }
+  rpc GetChatList(Empty)returns(GetChatListResp){
+    option (api.get) = "/api/v1/user/chatlist";
   }
   rpc PostMessage(PostMessageReq)returns(PostMessageResp){
     option (api.post) = "/api/v1/user/chat";

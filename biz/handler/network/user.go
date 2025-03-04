@@ -333,7 +333,7 @@ func GetPendingMessage(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	info, err := logic.NewUser(data.Default()).GetPendingMessage(ctx, userID)
+	info, err := logic.NewUser(data.Default()).GetPendingMessage(ctx, userID, req.ID)
 
 	if err != nil {
 		resp.ErrCode = base.ErrCode_CreateChatError
@@ -341,13 +341,12 @@ func GetPendingMessage(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusInternalServerError, resp)
 		return
 	}
-	resp.Info = make([]*network.ChatMessageInfo, len(*info))
-	for i := 0; i < len(*info); i++ {
-		tmp := new(network.ChatMessageInfo)
-		copier.Copy(tmp, (*info)[i])
-		resp.Info[i] = tmp
-	}
-
+	fmt.Println("getpending: ", info)
+	tmp := new(network.ChatMessageInfo)
+	copier.Copy(tmp, info)
+	resp.Info = tmp
+	resp.ErrCode = base.ErrCode_Success
+	resp.ErrMsg = "success"
 	c.JSON(consts.StatusOK, resp)
 }
 
@@ -429,7 +428,7 @@ func SearchUser(ctx context.Context, c *app.RequestContext) {
 	var req network.SearchUserReq
 
 	err = c.BindAndValidate(&req)
-	fmt.Println("searchUserReq:", req)
+	// fmt.Println("searchUserReq:", req)
 	resp := new(network.SearchUserResp)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_ArgumentError
@@ -462,5 +461,146 @@ func SearchUser(ctx context.Context, c *app.RequestContext) {
 	resp.UserEntries = entries
 	resp.ErrCode = base.ErrCode_Success
 	resp.ErrMsg = "success"
+	c.JSON(consts.StatusOK, resp)
+}
+
+// GetFollowings .
+// @router /api/v1/user/followings [GET]
+func GetFollowings(ctx context.Context, c *app.RequestContext) {
+	var err error
+	resp := new(network.GetFollowingsResp)
+	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	res, err := logic.NewUser(data.Default()).GetFollowings(ctx, userID)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_GetFollowingsError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	entries := make([]*network.UserEntry, len(res))
+	err = copier.Copy(&entries, res)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CopierError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp.UserEntries = entries
+	resp.ErrCode = base.ErrCode_Success
+	resp.ErrMsg = "success"
+	c.JSON(consts.StatusOK, resp)
+}
+
+// GetFollowers .
+// @router /api/v1/user/followers [GET]
+func GetFollowers(ctx context.Context, c *app.RequestContext) {
+	var err error
+
+	resp := new(network.GetFollowersResp)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	res, err := logic.NewUser(data.Default()).GetFollowers(ctx, userID)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_GetFollowersError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	entries := make([]*network.UserEntry, len(res))
+	err = copier.Copy(&entries, res)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CopierError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp.UserEntries = entries
+	resp.ErrCode = base.ErrCode_Success
+	resp.ErrMsg = "success"
+	c.JSON(consts.StatusOK, resp)
+}
+
+// GetFriends .
+// @router /api/v1/user/friends [GET]
+func GetFriends(ctx context.Context, c *app.RequestContext) {
+	var err error
+	resp := new(network.GetFollowingsResp)
+	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	res, err := logic.NewUser(data.Default()).GetFriends(ctx, userID)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_GetFriendsError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	entries := make([]*network.UserEntry, len(res))
+	err = copier.Copy(&entries, res)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CopierError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp.UserEntries = entries
+	resp.ErrCode = base.ErrCode_Success
+	resp.ErrMsg = "success"
+	c.JSON(consts.StatusOK, resp)
+}
+
+// GetChatList .
+// @router /api/v1/user/chatlist [GET]
+func GetChatList(ctx context.Context, c *app.RequestContext) {
+	var err error
+	resp := new(network.GetChatListResp)
+	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	res, err := logic.NewUser(data.Default()).GetChatList(ctx, userID)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_GetChatListError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	entries := make([]*network.ChatEntry, len(res))
+	fmt.Println("GetChatList:", res)
+	err = copier.Copy(&entries, res)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CopierError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp.Info = entries
+	resp.ErrCode = base.ErrCode_Success
+	resp.ErrMsg = "success"
+
 	c.JSON(consts.StatusOK, resp)
 }
