@@ -3,24 +3,11 @@ see [tutorial](https://www.bilibili.com/video/BV1CE411H7bQ/?p=13&share_source=co
 
 
 ## Project setup
-```
-yarn install
-```
+#### environment:
+- npm:6.7.0
+- node:v11.15.0
 
-### Compiles and hot-reloads for development
+#### run
+```bash
+npm run serve
 ```
-yarn serve
-```
-
-### Compiles and minifies for production
-```
-yarn build
-```
-
-### Lints and fixes files
-```
-yarn lint
-```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
