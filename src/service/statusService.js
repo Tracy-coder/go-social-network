@@ -9,12 +9,8 @@ const fetchStatuses = () => {
   return request.get('/api/v1/user/timeline');
 };
 
-const fetchProfile = () => {
-  return request.get('/api/v1/user/profile');
-};
 
 export default {
   postStatus,
-  fetchProfile,
   fetchStatuses,
 };

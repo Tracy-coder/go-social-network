@@ -21,9 +21,7 @@
       <h2>Timeline</h2>
       <ul class="list-group">
         <li class="list-group-item" v-for="status in statuses" :key="status.ID">
-          <div>
-            <strong>{{ status.username }}</strong> - {{ status.posted |formatDate }}
-          </div>
+          <status :entry="status" @unfollowUser="unfollowUser"></status>
           <div>{{ status.message }}</div>
         </li>
       </ul>
@@ -33,8 +31,11 @@
 
 <script>
 import { mapActions } from 'vuex';
+import userService from '../service/userService';
+import Status from './status/Status.vue';
 
 export default {
+  components: { Status },
   data() {
     return {
       newStatus: '',
@@ -51,6 +52,7 @@ export default {
       ],
     };
   },
+
   created() {
     this.fetchStatuses();
   },
@@ -78,15 +80,16 @@ export default {
       });
       this.newStatus = '';
     },
-
-  },
-  filters: {
-    formatDate(timestamp) {
-      // console.log(timestamp);
-      const date = new Date(timestamp / 1000000);
-      // console.log(date);
-      return date.toLocaleString();
+    unfollowUser(userID) {
+      userService.followAndUnfollow(userID, false).then((res) => {
+        console.log(res);
+      }).catch((err) => {
+        console.log(err);
+      });
+      // this.fetchStatuses();
+      this.statuses = this.statuses.filter((entry) => entry.userID !== userID);
     },
   },
+
 };
 </script>

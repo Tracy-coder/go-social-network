@@ -4,6 +4,7 @@ import store from '@/store';
 import Home from '../views/Home.vue';
 import userRoutes from './module/user';
 
+
 Vue.use(VueRouter);
 
 const routes = [
@@ -11,14 +12,39 @@ const routes = [
     path: '/Home',
     name: 'Home',
     component: Home,
+    meta: {
+      auth: true,
+    },
   },
   {
-    path: '/about',
-    name: 'About',
+    path: '/search',
+    name: 'Search',
     // route level code-splitting
     // this generates a separate chunk (about.[hash].js) for this route
     // which is lazy-loaded when the route is visited.
-    component: () => import(/* webpackChunkName: "about" */ '../views/About.vue'),
+    component: () => import(/* webpackChunkName: "about" */ '../views/search/Search.vue'),
+    meta: {
+      auth: true,
+    },
+  },
+  {
+    path: '/group',
+    name: 'Group',
+    // route level code-splitting
+    // this generates a separate chunk (about.[hash].js) for this route
+    // which is lazy-loaded when the route is visited.
+    component: () => import(/* webpackChunkName: "about" */ '../views/group/Group.vue'),
+    meta: {
+      auth: true,
+    },
+  },
+  {
+    path: '/message',
+    name: 'Message',
+    component: () => import('../views/message/Message.vue'),
+    meta: {
+      auth: true,
+    },
   },
   ...userRoutes,
 ];
@@ -28,6 +54,7 @@ const router = new VueRouter({
   base: process.env.BASE_URL,
   routes,
 });
+
 
 router.beforeEach((to, from, next) => {
   if (to.meta.auth) {

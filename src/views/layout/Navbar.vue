@@ -6,7 +6,7 @@
       variant="info"
     >
       <b-container>
-        <b-navbar-brand @click="$router.push({name: 'Home'})">Jkdev.cn</b-navbar-brand>
+        <b-navbar-brand @click="$router.push({name: 'Home'})">Go-social-network</b-navbar-brand>
 
         <b-navbar-toggle target="nav-collapse"></b-navbar-toggle>
 
@@ -14,7 +14,16 @@
           id="nav-collapse"
           is-nav
         >
+                 <b-navbar-nav>
+    <b-nav-item @click="$router.push({name:'Group'})">group</b-nav-item>
+        <b-nav-item href="#">Disabled</b-nav-item>
+      </b-navbar-nav>
           <b-navbar-nav class="ml-auto">
+        <b-nav-form>
+          <b-form-input size="sm" v-model="searchValue" class="mr-sm-2"
+          placeholder="Search"></b-form-input>
+          <b-button size="sm"  @click="search">Search</b-button>
+        </b-nav-form>
             <b-nav-item-dropdown
              right
               v-if="userInfo"
@@ -47,11 +56,23 @@
 import { mapState, mapActions } from 'vuex';
 
 export default {
+
+  data() {
+    return {
+      searchValue: '',
+    };
+  },
   computed: mapState({
     userInfo: (state) => state.userModule.userInfo,
   }),
 
-  methods: mapActions('userModule', ['logout']),
+  methods: {
+    ...mapActions('userModule', ['logout']),
+    search() {
+      console.log(this.searchValue);
+      this.$router.push({ name: 'Search', query: { q: this.searchValue } });
+    },
+  },
 };
 </script>
 

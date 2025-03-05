@@ -6,6 +6,7 @@ const userModule = {
   state: {
     token: storageService.get(storageService.USER_TOKEN),
     userInfo: storageService.get(storageService.USER_INFO) ? JSON.parse(storageService.get(storageService.USER_INFO)) : null, //eslint-disable-line
+    userStatus: [],
   },
 
   mutations: {
@@ -17,12 +18,17 @@ const userModule = {
       storageService.set(storageService.USER_INFO, JSON.stringify(userInfo));
       state.userInfo = userInfo;
     },
+    SET_USERSTATUS(state, userStatus) {
+      state.userStatus = userStatus;
+    },
   },
 
   actions: {
     register(context, { username, password, email }) {
       return new Promise((resolve, reject) => {
-        userService.register({ username, password, email }).catch((err) => {
+        userService.register({ username, password, email }).then(() => {
+          resolve();
+        }).catch((err) => {
           reject(err);
         });
       });
@@ -46,6 +52,21 @@ const userModule = {
       context.commit('SET_USERINFO', '');
       storageService.set(storageService.USER_INFO, '');
       window.location.reload();
+    },
+    fetchProfile(context) {
+      return Promise.all([
+        userService.fetchProfile(),
+        userService.info(),
+      ])
+        .then(([profileRes, userinfoRes]) => {
+          console.log(profileRes.data.info);
+          console.log(userinfoRes);
+          context.commit('SET_USERSTATUS', profileRes.data.info);
+          context.commit('SET_USERINFO', userinfoRes.data);
+        })
+        .catch((err) => {
+          return err;
+        });
     },
   },
 };

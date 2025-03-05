@@ -1,76 +1,131 @@
 <template>
-
   <b-card>
     <b-card-text>
-      <h3>hello <span v-if="userInfo">{{userInfo.username}}</span></h3>
+      <h3>hello <span v-if="userInfo">{{ userInfo.username }}</span></h3>
     </b-card-text>
-  <div class="user-info">
-    <p><strong>Email:</strong> {{ userInfo.email }}</p>
-    <p><strong>Following:</strong> {{ userInfo.following }}</p>
-    <p><strong>Posts:</strong> {{ userInfo.posts }}</p>
-    <p><strong>Signup:</strong> {{ userInfo.signup | formatDate}}</p>
-  </div>
-    <!-- <b-button href="#" variant="primary">edit profile</b-button> -->
-    <div>
-      <h2>Profile</h2>
-      <ul class="list-group">
-        <li class="list-group-item" v-for="status in statuses" :key="status.ID">
-          <div>
-            <strong>{{ status.username }}</strong> - {{ status.posted |formatDate }}
-          </div>
-          <div>{{ status.message }}</div>
-        </li>
-      </ul>
+    <div class="user-info">
+      <p><strong>Email:</strong> {{ userInfo.email }}</p>
+      <p @click="fetchFollowings"><strong>Following:</strong> {{ userInfo.followings }}</p>
+      <p @click="fetchFollowers"><strong>Followed:</strong> {{ userInfo.followers }}</p>
+      <p @click="fetchFriends"><strong>friends:</strong> {{ userInfo.friends }}</p>
+      <p @click="fetchProfile"><strong>Posts:</strong> {{ userInfo.posts }}</p>
+      <p><strong>Signup:</strong> {{ formattedSignup }}</p>
     </div>
-  </b-card>
+<div v-if="!showUserEntries">
+  <h2>Profile</h2>
+  <ul class="list-group">
+    <li class="list-group-item" v-for="status in userStatuses" :key="status.ID">
+      <div>
+        <strong>{{ status.username }}</strong> - {{ formatDate(status.posted) }}
+      </div>
+      <div>{{ status.message }}</div>
+    </li>
+  </ul>
+</div>
 
+<div v-else>
+          <UserList :userEntries="userEntries" @unfollowUser="unfollowUser"
+          @followUser="followUser"></UserList>
+</div>
+  </b-card>
 </template>
+
 <script>
 import { mapActions, mapState } from 'vuex';
-
+import userService from '../../service/userService';
+import UserList from '../userList/UserList.vue';
 
 export default {
-  computed: mapState({
-    userInfo: (state) => state.userModule.userInfo,
-  }),
-
+  components: { UserList },
+  computed: {
+    ...mapState('userModule', {
+      userInfo: (state) => state.userInfo,
+      userStatuses: (state) => state.userStatus,
+    }),
+    formattedSignup() {
+      return this.formatDate(this.userInfo.signup);
+    },
+  },
   data() {
     return {
-      newStatus: '',
-      statuses: [
-        // {
-        //   ID: 1, userID: 'Alice', posted: '2024-12-24 10:30', message: '1',
-        // },
-        // {
-        //   ID: 2, userID: 'Bob', posted: '2024-12-23 15:45', message: '2',
-        // },
-        // {
-        //   ID: 3, userID: 'Charlie', posted: '2024-12-22 09:00', message: '3',
-        // },
-      ],
+      userEntries: [],
+      showUserEntries: false,
     };
   },
   created() {
     this.fetchProfile();
   },
   methods: {
-    ...mapActions('statusModule', { fetch: 'fetchProfile' }),
+    ...mapActions('userModule', { fetchProfileAction: 'fetchProfile' }),
     fetchProfile() {
-      this.fetch().then((data) => {
+      this.fetchProfileAction().then((data) => {
         console.log(data);
-        this.statuses = data.data.info;
-      })
-        .catch((error) => {
-          console.error('Error fetching statuses:', error);
-        });
+      }).catch((error) => {
+        console.error('Error getting profile:', error);
+      });
+      this.showUserEntries = false;
     },
-  },
-  filters: {
     formatDate(timestamp) {
-      // console.log(timestamp);
       const date = new Date(timestamp / 1000000);
-      // console.log(date);
       return date.toLocaleString();
+    },
+    fetchFollowings() {
+      console.log('following');
+      userService.getFollowings().then((res) => {
+        console.log(res);
+        this.userEntries = res.data.userEntries;
+      }).catch((err) => {
+        console.log(err);
+      });
+      this.showUserEntries = true;
+    },
+    fetchFollowers() {
+      console.log('followers');
+      userService.getFollowers().then((res) => {
+        console.log(res);
+        this.userEntries = res.data.userEntries;
+      }).catch((err) => {
+        console.log(err);
+      });
+      this.showUserEntries = true;
+    },
+    fetchFriends() {
+      console.log('friends');
+      userService.getFriends().then((res) => {
+        console.log(res);
+        this.userEntries = res.data.userEntries;
+      }).catch((err) => {
+        console.log(err);
+      });
+      this.showUserEntries = true;
+    },
+    followUser(userID) {
+      console.log('follow');
+      userService.followAndUnfollow(userID, true).then((res) => {
+        console.log(res);
+      }).catch((err) => {
+        console.log(err);
+      });
+      const user = this.userEntries.find((entry) => entry.ID === userID);
+      if (user) {
+        this.$set(user, 'isFollow', true);
+        // user.isFollow = true; // 将 isFollow 设置为 true
+      }
+      console.log(this.userEntries);
+    },
+    unfollowUser(userID) {
+      console.log('unfollow');
+      userService.followAndUnfollow(userID, false).then((res) => {
+        console.log(res);
+      }).catch((err) => {
+        console.log(err);
+      });
+      const user = this.userEntries.find((entry) => entry.ID === userID);
+      if (user) {
+        this.$set(user, 'isFollow', false);
+        // user.isFollow = true; // 将 isFollow 设置为 true
+      }
+      console.log(this.userEntries);
     },
   },
 };

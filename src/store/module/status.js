@@ -30,16 +30,7 @@ const statusModule = {
         });
       });
     },
-    fetchProfile() {
-      return new Promise((resolve, reject) => {
-        statusService.fetchProfile().then((res) => {
-          console.log(res);
-          resolve(res);
-        }).catch((err) => {
-          reject(err);
-        });
-      });
-    },
+
   },
 };
 export default statusModule;

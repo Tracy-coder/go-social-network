@@ -13,8 +13,62 @@ const info = () => {
   return request.get('/api/v1/user/info');
 };
 
+const followAndUnfollow = (otherID, action) => {
+  return request.post('/api/v1/user/follow', { otherID, action });
+};
+
+const fetchProfile = () => {
+  return request.get('/api/v1/user/profile');
+};
+
+const getFollowings = () => {
+  return request.get('/api/v1/user/followings');
+};
+
+const getFollowers = () => {
+  return request.get('/api/v1/user/followers');
+};
+
+const getFriends = () => {
+  return request.get('/api/v1/user/friends');
+};
+
+const getChatList = () => {
+  return request.get('/api/v1/user/chatlist');
+};
+
+const createChat = (picked) => {
+  return request.post('/api/v1/user/chats', { memberID: picked });
+};
+
+const getPendingMsg = (ID) => {
+  console.log(ID);
+  return request.get('/api/v1/user/chat', { params: { ID } });
+};
+
+const postMessage = (ID, message) => {
+  return request.post('/api/v1/user/chat', { ID, message });
+};
+
+// 定义一个函数，用于退出聊天
+const leaveChat = (ID) => {
+  // 发送一个delete请求，请求路径为/api/v1/user/chat，参数为ID
+  return request.delete('/api/v1/user/chat', { params: { ID } });
+};
+
+
 export default {
   register,
   login,
   info,
+  followAndUnfollow,
+  fetchProfile,
+  getFollowings,
+  getFollowers,
+  getFriends,
+  getChatList,
+  createChat,
+  getPendingMsg,
+  postMessage,
+  leaveChat,
 };

@@ -106,8 +106,8 @@ export default {
         console.log('reject');
         return;
       }
-      console.log(this.user);
       this.userRegister(this.user).then(() => {
+        console.log('replace login');
         this.$router.replace({ name: 'login' });
       }).catch((err) => {
         console.log(err.response.data.errMsg);
