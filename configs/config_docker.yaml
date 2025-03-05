@@ -1,6 +1,6 @@
 Name: go-social-network
 IsDemo: false  # true: demo mode, forbid operations like create, update, delete
-IsProd: false
+IsDocker: true
 Host: 0.0.0.0
 Port: 8888
 Timeout: 30000

@@ -4,6 +4,7 @@ package configs
 
 import (
 	"embed"
+	"fmt"
 	"os"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
@@ -44,22 +45,21 @@ func ReLoad() {
 
 // load from config.yaml (embed)
 func load() (config Config, err error) {
-	// Obtain whether it is prod environment from the environment variable
-	IsProd := os.Getenv("IS_PROD")
-	// If it is prod environment, load the prod configuration file
-	if IsProd == "true" {
-		hlog.Info("load prod config")
+	IsDocker := os.Getenv("IS_DOCKER")
+	fmt.Println(IsDocker)
+	if IsDocker == "true" {
+		hlog.Info("load docker config")
 		err = configor.New(&configor.Config{ErrorOnUnmatchedKeys: true, FS: configFiles}).
-			Load(&config, "config.yaml")
+			Load(&config, "config_docker.yaml")
 		if err != nil {
 			hlog.Fatal(err)
 		}
 		return
 	}
-	// If it is not prod environment, load the dev configuration file
+
 	hlog.Info("load dev config")
 	err = configor.New(&configor.Config{ErrorOnUnmatchedKeys: true, FS: configFiles}).
-		Load(&config, "config_dev.yaml")
+		Load(&config, "config.yaml")
 	if err != nil {
 		hlog.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func load() (config Config, err error) {
 type Config struct {
 	Name     string     `yaml:"Name"`
 	IsDemo   bool       `yaml:"IsDemo"`
-	IsProd   bool       `yaml:"IsProd"`
+	IsDocker bool       `yaml:"IsDocker"`
 	Host     string     `yaml:"Host"`
 	Port     int        `yaml:"Port"`
 	Timeout  int        `yaml:"Timeout"`

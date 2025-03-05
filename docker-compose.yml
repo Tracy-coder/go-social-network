@@ -60,7 +60,9 @@ services:
     depends_on:
       - kafka-social
       - redis-social
-    entrypoint:
+    environment:
+      IS_DOCKER: "true"
+    entrypoint:  # override the entrypoint and cmd in Dockerfile
       [
         "/app/wait-for.sh",
         "kafka1:9092",

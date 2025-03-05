@@ -1,9 +1,10 @@
-Name: e-mall
+Name: go-social-network
 IsDemo: false  # true: demo mode, forbid operations like create, update, delete
-IsProd: true
+IsDocker: false
 Host: 0.0.0.0
 Port: 8888
 Timeout: 30000
+CronExpr: "@every 1m"
 
 Captcha:
   KeyLong: 5
@@ -46,5 +47,5 @@ Casbin:
 Kafka:
   Brokers:
     - "localhost:9092"
-  Topic: "email"
-  GroupID: "email_01"
+  Topic: "network"
+  GroupID: "network_01"
