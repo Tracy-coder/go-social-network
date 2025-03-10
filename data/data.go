@@ -94,14 +94,18 @@ func (d *Data) FreshStatus() {
 			d.refillTimeline(context.Background(), userID)
 		}
 	}
+	cnt := d.Redis.ZCard(context.Background(), common.HotStatusZSet).Val()
+	if cnt > common.HotStatusZSetSize {
+		d.Redis.ZRemRangeByRank(context.Background(), common.HotStatusZSet, 0, -common.HotStatusZSetSize-1)
+	}
 }
 
 func (d *Data) refillTimeline(ctx context.Context, userID int64) error {
-	followers := d.Redis.ZRange(ctx, common.FollowerZSet(userID), 0, -1).Val()
+	followings := d.Redis.ZRange(ctx, common.FollowingZSet(userID), 0, -1).Val()
 	pipeline := d.Redis.TxPipeline()
 	posts := make([]string, 0)
 
-	for _, follower := range followers {
+	for _, follower := range followings {
 		pipeline.ZRange(ctx, common.UserProfileZSet(follower), 0, common.HomeTimelineSize)
 	}
 	res, err := pipeline.Exec(ctx)

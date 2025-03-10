@@ -46,7 +46,7 @@ func (u *User) Register(ctx context.Context, req domain.UserRegisterReq) error {
 	pipeline.HSet(ctx, common.Username2ID, req.Username, id)
 	pipeline.HMSet(ctx, common.UserInfoHashTable(id), "username", req.Username,
 		"id", id, "email", req.Email, "followers", 0, "followings", 0, "friends", 0, "posts", 0, "password", password,
-		"signup", time.Now().UnixNano())
+		"signup", time.Now().UnixMilli())
 	if _, err := pipeline.Exec(ctx); err != nil {
 		return fmt.Errorf("pipeline err in CreateUser: %s", err)
 	}
@@ -107,17 +107,21 @@ func (u *User) PostStatus(ctx context.Context, userID int64, message string) (*d
 		return nil, err
 	}
 	username, id := res[0].(*redis.StringCmd).Val(), res[1].(*redis.IntCmd).Val()
-	posted := time.Now().UnixNano()
+	posted := time.Now().UnixMilli()
 	data := make(map[string]interface{})
 	data["message"] = message
 	data["posted"] = posted
 	data["id"] = id
 	data["userID"] = userID
 	data["username"] = username
-
+	data["likes"] = 0
 	pipeline.HMSet(ctx, common.StatusInfoHashTable(id), data)
 	pipeline.HIncrBy(ctx, common.UserInfoHashTable(userID), "posts", 1)
 	pipeline.ZAdd(ctx, common.UserProfileZSet(userID), redis.Z{Member: id, Score: float64(posted)})
+	pipeline.ZAdd(ctx, common.HotStatusZSet, redis.Z{
+		Score:  common.CalculateScore(posted, 0),
+		Member: id,
+	}).Result()
 	if _, err := pipeline.Exec(ctx); err != nil {
 		return nil, err
 	}
@@ -157,8 +161,8 @@ func (u *User) DeleteStatus(ctx context.Context, userID int64, postID int64) err
 	}
 	defer u.Data.ReleaseLock(ctx, key, lock)
 	ownerID := u.Data.Redis.HGet(ctx, key, "userID").Val()
-
-	// fmt.Println(ownerID)
+	fmt.Println(postID)
+	fmt.Println(ownerID)
 	ownerIDNum, _ := strconv.ParseInt(ownerID, 10, 64)
 	if ownerIDNum != userID {
 		return errors.New("can't delete someone else's status")
@@ -193,16 +197,21 @@ func (u *User) GetTimeline(ctx context.Context, userID int64, pageID int32, page
 	for i, val := range res {
 		temp := val.(*redis.MapStringStringCmd).Val()
 		id, _ := strconv.ParseInt(temp["id"], 10, 64)
-		userID, _ := strconv.ParseInt(temp["userID"], 10, 64)
+		ownerID, _ := strconv.ParseInt(temp["userID"], 10, 64)
 		posted, _ := strconv.ParseUint(temp["posted"], 10, 64)
+		isLiked, _ := u.Data.Redis.SIsMember(ctx, common.UserLikeSet(userID), id).Result()
+		fmt.Println(isLiked)
 		info[i] = &domain.StatusInfo{
-			ID:       id,
-			UserID:   userID,
-			Username: temp["username"],
-			Message:  temp["message"],
-			Posted:   posted,
+			ID:         id,
+			UserID:     ownerID,
+			Username:   temp["username"],
+			Message:    temp["message"],
+			Posted:     posted,
+			IsLiked:    isLiked,
+			IsFollowed: true,
 		}
 	}
+	fmt.Println(info)
 	return info, nil
 }
 
@@ -236,6 +245,42 @@ func (u *User) GetProfile(ctx context.Context, userID int64, pageID int32, pageS
 	return info, nil
 }
 
+func (u *User) GetHot(ctx context.Context, userID int64, pageID int32, pageSize int32) ([]*domain.StatusInfo, error) {
+	statuses := u.Data.Redis.ZRevRange(ctx, common.HotStatusZSet,
+		int64((pageID-1)*pageSize), int64(pageID*pageSize)-1).Val()
+	pipeline := u.Data.Redis.TxPipeline()
+	for _, id := range statuses {
+		pipeline.HGetAll(ctx, common.StatusInfoHashTable(id))
+	}
+	res, err := pipeline.Exec(ctx)
+	// fmt.Println(res)
+	if err != nil {
+		return nil, err
+	}
+	info := make([]*domain.StatusInfo, len(res))
+
+	for i, val := range res {
+		temp := val.(*redis.MapStringStringCmd).Val()
+		id, _ := strconv.ParseInt(temp["id"], 10, 64)
+		ownerID, _ := strconv.ParseInt(temp["userID"], 10, 64)
+		posted, _ := strconv.ParseUint(temp["posted"], 10, 64)
+		isLiked, _ := u.Data.Redis.SIsMember(ctx, common.UserLikeSet(userID), id).Result()
+		isFollow := u.Data.Redis.ZScore(ctx, common.FollowingZSet(userID), fmt.Sprintf("%d", ownerID)).Val()
+		fmt.Println("isFollow:", userID, ownerID, isFollow)
+		info[i] = &domain.StatusInfo{
+			ID:         id,
+			UserID:     ownerID,
+			Username:   temp["username"],
+			Message:    temp["message"],
+			Posted:     posted,
+			IsLiked:    isLiked,
+			IsFollowed: isFollow != 0,
+		}
+	}
+	fmt.Println(info)
+	return info, nil
+}
+
 func (u *User) FollowAction(ctx context.Context, userID int64, otherID int64) error {
 	if userID == otherID {
 		return errors.New("can not follow yourself")
@@ -245,7 +290,7 @@ func (u *User) FollowAction(ctx context.Context, userID int64, otherID int64) er
 	}
 	isMutual := u.Data.Redis.ZScore(ctx, common.FollowingZSet(otherID), fmt.Sprintf("%d", userID)).Val() != 0
 
-	now := time.Now().UnixNano()
+	now := time.Now().UnixMilli()
 
 	pipeline := u.Data.Redis.TxPipeline()
 	pipeline.ZAdd(ctx, common.FollowingZSet(userID), redis.Z{Member: otherID, Score: float64(now)})
@@ -309,7 +354,6 @@ func (u *User) UnFollowAction(ctx context.Context, userID int64, otherID int64) 
 	if res, err := pipeline.Exec(ctx); err != nil {
 		return fmt.Errorf("pipeline error in unfollow action:%s %s", err, res)
 	}
-	// return u.refillTimeline(ctx, userID)
 	return nil
 }
 func (u *User) SearchUser(ctx context.Context, userID int64, expr string) ([]*domain.UserEntry, error) {
@@ -420,7 +464,7 @@ func (u *User) PostMessage(ctx context.Context, userID int64, chatID int64, mess
 		return nil, fmt.Errorf("can't send messages in that group")
 	}
 	messageID := u.Data.Redis.Incr(ctx, common.MessageIDCounter(chatID)).Val()
-	ts := time.Now().UnixNano()
+	ts := time.Now().UnixMilli()
 	senderName := u.Data.Redis.HGet(ctx, common.UserInfoHashTable(userID), "username").Val()
 	packed := domain.MessageInfo{
 		ID:         messageID,
@@ -526,4 +570,35 @@ func (u *User) GetChatList(ctx context.Context, userID int64) ([]*domain.ChatEnt
 		}
 	}
 	return entries, nil
+}
+
+func (u *User) ToggleLikeStatus(ctx context.Context, userID int64, postID int64, action bool) error {
+	isLiked, err := u.Data.Redis.SIsMember(ctx, common.UserLikeSet(userID), postID).Result()
+	if err != nil {
+		return err
+	}
+
+	if action && isLiked {
+		return errors.New("already liked this post")
+	} else if !action && !isLiked {
+		return errors.New("post not liked yet")
+	}
+
+	if action {
+		_, err = u.Data.Redis.HIncrBy(ctx, common.StatusInfoHashTable(postID), "likes", 1).Result()
+		if err != nil {
+			return err
+		}
+		u.Data.Redis.SAdd(ctx, common.UserLikeSet(userID), postID)
+		u.Data.Redis.ZIncrBy(ctx, common.HotStatusZSet, common.ScorePerLike, strconv.FormatInt(postID, 10))
+	} else {
+		_, err = u.Data.Redis.HIncrBy(ctx, common.StatusInfoHashTable(postID), "likes", -1).Result()
+		if err != nil {
+			return err
+		}
+		u.Data.Redis.SRem(ctx, common.UserLikeSet(userID), postID)
+		u.Data.Redis.ZIncrBy(ctx, common.HotStatusZSet, -common.ScorePerLike, strconv.FormatInt(postID, 10))
+	}
+
+	return nil
 }

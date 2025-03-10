@@ -113,3 +113,13 @@ func _getchatlistMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _togglelikestatusMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _gethotMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

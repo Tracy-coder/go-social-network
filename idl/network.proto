@@ -55,6 +55,13 @@ message StatusInfo{
   string username = 3;
   string message = 4;
   uint64 posted = 5;
+  bool isLiked = 6;
+  bool isFollowed = 7;
+}
+
+message ToggleLikeStatusReq{
+  int64 ID = 1;
+  bool action = 2;  // true:like
 }
 message GetTimelineResp{
   base.ErrCode errCode = 1;
@@ -63,6 +70,17 @@ message GetTimelineResp{
   repeated StatusInfo info= 4;
 }
 
+message GetHotReq{
+  int32 pageID = 1;
+  int32 pageSize = 2;
+}
+
+message GetHotResp{
+  base.ErrCode errCode = 1;
+  string errMsg = 2;
+  int32 pageID = 3;
+  repeated StatusInfo info= 4;
+}
 message GetProfileResp{
   base.ErrCode errCode = 1;
   string errMsg = 2;
@@ -182,11 +200,19 @@ service user{
   rpc DeleteStatus(DeleteStatusReq) returns (base.BaseResp){
     option (api.delete) = "/api/v1/user/post";
   }
+  rpc toggleLikeStatus(ToggleLikeStatusReq) returns (base.BaseResp){
+    option (api.post) = "/api/v1/user/like";
+  }
+  
   rpc GetTimeline(GetTimelineReq)returns(GetTimelineResp){
     option (api.get) = "/api/v1/user/timeline";
   }
   rpc GetProfile(GetProfileReq)returns(GetProfileResp){
     option (api.get) = "/api/v1/user/profile";
+  }
+  
+  rpc GetHot(GetHotReq)returns(GetHotResp){
+    option (api.get) = "/api/v1/user/hot";
   }
   rpc GetFollowings(Empty)returns(GetFollowingsResp){
     option (api.get) = "/api/v1/user/followings";

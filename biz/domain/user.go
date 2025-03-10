@@ -32,11 +32,13 @@ type UserEntry struct {
 	IsFollow bool
 }
 type StatusInfo struct {
-	ID       int64
-	UserID   int64
-	Username string
-	Message  string
-	Posted   uint64
+	ID         int64
+	UserID     int64
+	Username   string
+	Message    string
+	Posted     uint64
+	IsLiked    bool
+	IsFollowed bool
 }
 
 type MessageInfo struct {
@@ -75,4 +77,6 @@ type User interface {
 	GetPendingMessage(ctx context.Context, userID int64, chatID int64) (*ChatMessageInfo, error)
 	LeaveChat(ctx context.Context, userID, chatID int64) error
 	GetChatList(ctx context.Context, userID int64) ([]*ChatEntry, error)
+	ToggleLikeStatus(ctx context.Context, userID int64, postID int64, action bool) error
+	GetHot(ctx context.Context, userID int64, pageID int32, pageSize int32) ([]*StatusInfo, error)
 }

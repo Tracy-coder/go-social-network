@@ -604,3 +604,73 @@ func GetChatList(ctx context.Context, c *app.RequestContext) {
 
 	c.JSON(consts.StatusOK, resp)
 }
+
+// ToggleLikeStatus .
+// @router /api/v1/user/like [POST]
+func ToggleLikeStatus(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.ToggleLikeStatusReq
+	resp := new(base.BaseResp)
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	err = logic.NewUser(data.Default()).ToggleLikeStatus(ctx, userID, req.ID, req.Action)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ToggleLikeStatusError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// GetHot .
+// @router /api/v1/user/hot [GET]
+func GetHot(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req network.GetHotReq
+	err = c.BindAndValidate(&req)
+	resp := new(network.GetHotResp)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_ArgumentError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_UnauthorizedError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	res, err := logic.NewUser(data.Default()).GetHot(ctx, userID, req.PageID, req.PageSize)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_GetHotError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	info := make([]*network.StatusInfo, len(res))
+	err = copier.Copy(&info, res)
+	if err != nil {
+		resp.ErrCode = base.ErrCode_CopierError
+		resp.ErrMsg = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp.Info = info
+	resp.PageID = req.PageID
+	c.JSON(consts.StatusOK, resp)
+}

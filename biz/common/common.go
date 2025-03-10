@@ -7,10 +7,13 @@ const (
 	Username2ID     string = "users:"
 	StatusIDCounter string = "status:id:"
 	ChatIDCounter   string = "chat:id:"
+	HotStatusZSet   string = "status:hot:"
 )
 
 const (
-	HomeTimelineSize = 100
+	HomeTimelineSize  = 100
+	HotStatusZSetSize = 100
+	ScorePerLike      = 3600000
 )
 
 func NewKeyGenerator(prefix string) func(interface{}) string {
@@ -36,3 +39,8 @@ var ChatMembersZSet func(interface{}) string = NewKeyGenerator("chat")
 var UserLastSeenZset func(interface{}) string = NewKeyGenerator("seen")
 var MessageIDCounter func(interface{}) string = NewKeyGenerator("ids")
 var MessageInChatZset func(interface{}) string = NewKeyGenerator("msgs")
+var UserLikeSet func(interface{}) string = NewKeyGenerator("user:liked")
+
+func CalculateScore(posted int64, likes int) float64 {
+	return float64(posted) + float64(likes)*ScorePerLike
+}

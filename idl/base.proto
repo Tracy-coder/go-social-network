@@ -23,6 +23,8 @@ enum ErrCode {
   GetFollowersError = 16;
   GetFriendsError = 17;
   GetChatListError = 18;
+  ToggleLikeStatusError = 19;
+  GetHotError = 20;
 }
 
 
