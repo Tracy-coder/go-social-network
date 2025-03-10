@@ -1,27 +1,11 @@
 <template>
   <div class="container mt-4">
-    <div class="mb-3">
-      <b-card>
-        <b-form-group>
-        <b-form-input
-        v-model="newStatus"
-        type="text"
-        required
-        placeholder="Post a status"
-      ></b-form-input>
-      </b-form-group>
-      <b-form-group>
-      <b-button @click="postStatus" variant="outline-primary">
-      post status</b-button>
-      </b-form-group>
-      </b-card>
-    </div>
-
     <div>
-      <h2>Timeline</h2>
+      <h2>Hot status</h2>
       <ul class="list-group">
         <li class="list-group-item" v-for="status in statuses" :key="status.ID">
           <status :entry="status" @unfollowUser="unfollowUser"
+          @followUser="followUser"
           @toggleLikeStatus="toggleLikeStatus"></status>
         </li>
       </ul>
@@ -30,9 +14,8 @@
 </template>
 
 <script>
-import { mapActions } from 'vuex';
-import userService from '../service/userService';
-import Status from './status/Status.vue';
+import userService from '../../service/userService';
+import Status from '../status/Status.vue';
 
 export default {
   components: { Status },
@@ -54,12 +37,11 @@ export default {
   },
 
   created() {
-    this.fetchStatuses();
+    this.fetchHotStatus();
   },
   methods: {
-    ...mapActions('statusModule', { post: 'postStatus', fetch: 'fetchStatuses' }),
-    fetchStatuses() {
-      this.fetch().then((data) => {
+    fetchHotStatus() {
+      userService.fetchHotStatus().then((data) => {
         console.log(data);
         this.statuses = data.data.info;
         for (let i = 0; i < this.statuses.length; i += 1) {
@@ -75,27 +57,27 @@ export default {
           console.error('Error fetching statuses:', error);
         });
     },
-    postStatus() {
-      this.post(this.newStatus).then(() => {
-        this.fetchStatuses();
-      }).catch((err) => {
-        console.log(err);
-        this.$bvToast.toast(err.response.data.message, {
-          title: 'post status failed',
-          variant: 'danger',
-          solid: true,
-        });
-      });
-      this.newStatus = '';
-    },
     unfollowUser(userID) {
       userService.followAndUnfollow(userID, false).then((res) => {
         console.log(res);
+        const entry = this.statuses.find((status) => status.userID === userID);
+        if (entry) {
+          this.$set(entry, 'isFollowed', false);
+        }
       }).catch((err) => {
         console.log(err);
       });
-      // this.fetchStatuses();
-      this.statuses = this.statuses.filter((entry) => entry.userID !== userID);
+    },
+    followUser(userID) {
+      userService.followAndUnfollow(userID, true).then((res) => {
+        console.log(res);
+        const entry = this.statuses.find((status) => status.userID === userID);
+        if (entry) {
+          this.$set(entry, 'isFollowed', true);
+        }
+      }).catch((err) => {
+        console.log(err);
+      });
     },
     toggleLikeStatus(ID, action) {
       console.log(ID);

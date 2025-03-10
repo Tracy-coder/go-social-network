@@ -15,8 +15,8 @@
           is-nav
         >
                  <b-navbar-nav>
+    <b-nav-item @click="$router.push({name:'Hot'})">Hot</b-nav-item>
     <b-nav-item @click="$router.push({name:'Group'})">group</b-nav-item>
-        <b-nav-item href="#">Disabled</b-nav-item>
       </b-navbar-nav>
           <b-navbar-nav class="ml-auto">
         <b-nav-form>

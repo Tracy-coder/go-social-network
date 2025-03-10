@@ -17,6 +17,10 @@ const followAndUnfollow = (otherID, action) => {
   return request.post('/api/v1/user/follow', { otherID, action });
 };
 
+const toggleLikeStatus = (ID, action) => {
+  return request.post('/api/v1/user/like', { ID, action });
+};
+
 const fetchProfile = () => {
   return request.get('/api/v1/user/profile');
 };
@@ -56,7 +60,13 @@ const leaveChat = (ID) => {
   return request.delete('/api/v1/user/chat', { params: { ID } });
 };
 
+const fetchHotStatus = () => {
+  return request.get('/api/v1/user/hot');
+};
 
+const deleteStatus = (postID) => {
+  return request.delete('/api/v1/user/post', { params: { postID } });
+};
 export default {
   register,
   login,
@@ -71,4 +81,7 @@ export default {
   getPendingMsg,
   postMessage,
   leaveChat,
+  toggleLikeStatus,
+  fetchHotStatus,
+  deleteStatus,
 };

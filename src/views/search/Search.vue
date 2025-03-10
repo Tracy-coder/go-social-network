@@ -42,6 +42,13 @@ export default {
       searchService.searchUser(this.searchQuery).then((res) => {
         console.log(res);
         this.userEntries = res.data.userEntries;
+        // for (let i = 0; i < this.userEntries.length; i += 1) {
+        //   if (this.userEntries[i].isFollow === true) {
+        //     this.userEntries[i].isFollow = true;
+        //   } else {
+        //     this.userEntries[i].isFollow = false;
+        //   }
+        // }
       }).catch((err) => {
         console.log(err);
       });
@@ -55,7 +62,6 @@ export default {
       const user = this.userEntries.find((entry) => entry.ID === userID);
       if (user) {
         this.$set(user, 'isFollow', true);
-        // user.isFollow = true; // 将 isFollow 设置为 true
       }
       console.log(this.userEntries);
     },
@@ -68,7 +74,6 @@ export default {
       const user = this.userEntries.find((entry) => entry.ID === userID);
       if (user) {
         this.$set(user, 'isFollow', false);
-        // user.isFollow = true; // 将 isFollow 设置为 true
       }
       console.log(this.userEntries);
     },

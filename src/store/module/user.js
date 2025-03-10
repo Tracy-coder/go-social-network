@@ -68,6 +68,21 @@ const userModule = {
           return err;
         });
     },
+    deleteStatus(context, postID) {
+      return new Promise((resolve, reject) => {
+        userService.deleteStatus(postID)
+          .then(() => {
+            const newUserStatus = context.state.userStatus.filter((entry) => entry.ID !== postID);
+            context.commit('SET_USERSTATUS', newUserStatus);
+          })
+          .then(() => {
+            resolve();
+          })
+          .catch((err) => {
+            reject(err);
+          });
+      });
+    },
   },
 };
 export default userModule;

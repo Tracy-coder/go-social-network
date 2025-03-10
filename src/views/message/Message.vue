@@ -65,7 +65,7 @@ export default {
   filters: {
     formatDate(timestamp) {
       // console.log(timestamp);
-      const date = new Date(timestamp / 1000000);
+      const date = new Date(timestamp);
       // console.log(date);
       return date.toLocaleString();
     },

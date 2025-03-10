@@ -19,6 +19,9 @@
         <strong>{{ status.username }}</strong> - {{ formatDate(status.posted) }}
       </div>
       <div>{{ status.message }}</div>
+        <b-button variant="primary" @click="deleteStatus(status.ID)">
+          Delete
+        </b-button>
     </li>
   </ul>
 </div>
@@ -56,7 +59,7 @@ export default {
     this.fetchProfile();
   },
   methods: {
-    ...mapActions('userModule', { fetchProfileAction: 'fetchProfile' }),
+    ...mapActions('userModule', { fetchProfileAction: 'fetchProfile', deleteStatusAction: 'deleteStatus' }),
     fetchProfile() {
       this.fetchProfileAction().then((data) => {
         console.log(data);
@@ -66,7 +69,8 @@ export default {
       this.showUserEntries = false;
     },
     formatDate(timestamp) {
-      const date = new Date(timestamp / 1000000);
+      console.log(timestamp);
+      const date = new Date(timestamp);
       return date.toLocaleString();
     },
     fetchFollowings() {
@@ -123,9 +127,12 @@ export default {
       const user = this.userEntries.find((entry) => entry.ID === userID);
       if (user) {
         this.$set(user, 'isFollow', false);
-        // user.isFollow = true; // 将 isFollow 设置为 true
       }
-      console.log(this.userEntries);
+    },
+    deleteStatus(postID) {
+      this.deleteStatusAction(postID).catch((err) => {
+        console.log(err);
+      });
     },
   },
 };

@@ -46,6 +46,14 @@ const routes = [
       auth: true,
     },
   },
+  {
+    path: '/hot',
+    name: 'Hot',
+    component: () => import('../views/hot/Hot.vue'),
+    meta: {
+      auth: true,
+    },
+  },
   ...userRoutes,
 ];
 
