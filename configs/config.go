@@ -80,6 +80,7 @@ type Config struct {
 	Database Database   `yaml:"Database"`
 	Casbin   CasbinConf `yaml:"Casbin"`
 	Kafka    KafkaConf  `yaml:"Kafka"`
+	Jaeger   JaegerConf `yaml:"Jaeger"`
 }
 
 // Captcha is the configuration of the captcha.
@@ -121,4 +122,8 @@ type KafkaConf struct {
 	Brokers []string `yaml:"Brokers"`
 	Topic   string   `yaml:"Topic"`
 	GroupID string   `yaml:"GroupID"`
+}
+
+type JaegerConf struct {
+	Addr string `yaml:"Addr"`
 }

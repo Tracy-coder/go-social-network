@@ -49,3 +49,6 @@ Kafka:
     - "localhost:9092"
   Topic: "network"
   GroupID: "network_01"
+
+Jaeger:
+  Addr: "127.0.0.1:4317"

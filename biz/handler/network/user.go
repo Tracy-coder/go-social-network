@@ -17,6 +17,9 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/jinzhu/copier"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Register .
@@ -134,6 +137,10 @@ func PostStatus(ctx context.Context, c *app.RequestContext) {
 // GetTimeline .
 // @router /api/v1/user/timeline [GET]
 func GetTimeline(ctx context.Context, c *app.RequestContext) {
+	ctx, span := otel.Tracer("Handler").Start(ctx, "GetTimelineHandler", trace.WithSpanKind(trace.SpanKindServer))
+	defer span.End()
+	span.SetAttributes(attribute.Bool("isTrue", true), attribute.String("stringAttr", "hi!"))
+	span.AddEvent("test")
 	var err error
 	var req network.GetTimelineReq
 	err = c.BindAndValidate(&req)

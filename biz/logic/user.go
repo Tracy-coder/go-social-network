@@ -172,6 +172,7 @@ func (u *User) DeleteStatus(ctx context.Context, userID int64, postID int64) err
 	pipeline.ZRem(ctx, common.UserProfileZSet(userID), postID)
 
 	pipeline.HIncrBy(ctx, common.UserInfoHashTable(userID), "posts", -1)
+	pipeline.ZRem(ctx, common.HotStatusZSet, postID)
 
 	_, err := pipeline.Exec(ctx)
 	if err != nil {

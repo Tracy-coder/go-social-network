@@ -50,3 +50,6 @@ Kafka:
     - "kafka1:9092"
   Topic: "network"
   GroupID: "network_01"
+
+Jaeger:
+  Addr: "jaeger1:6831"

@@ -3,19 +3,31 @@
 package main
 
 import (
+	"context"
 	"go-social-network/biz/logic"
 	"go-social-network/data"
+	"go-social-network/tracer"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/hertz-contrib/cors"
 	"github.com/hertz-contrib/logger/accesslog"
+	hertztracing "github.com/hertz-contrib/obs-opentelemetry/tracing"
 )
 
 func main() {
 	data.Init()
 	go logic.Consumer4SyndicateStatus()
-	h := server.Default()
+
+	p := tracer.InitTracer("go-social-network")
+	defer p.Shutdown(context.Background())
+	tracer, cfg := hertztracing.NewServerTracer()
+	// tracer:config for hertz server
+	// cfg:config for tracing
+	h := server.Default(tracer)
+
+	h.Use(hertztracing.ServerMiddleware(cfg))
+
 	h.Use(accesslog.New(accesslog.WithFormat("[${time}] ${status} - ${latency} ${method} ${path} ${queryParams}")))
 	h.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:8081"},
