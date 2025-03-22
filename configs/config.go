@@ -75,12 +75,14 @@ type Config struct {
 	Port     int        `yaml:"Port"`
 	Timeout  int        `yaml:"Timeout"`
 	CronExpr string     `yaml:"CronExpr"`
+	LogDir   string     `yaml:"LogDir"`
 	Captcha  Captcha    `yaml:"Captcha"`
 	Redis    Redis      `yaml:"Redis"`
 	Database Database   `yaml:"Database"`
 	Casbin   CasbinConf `yaml:"Casbin"`
 	Kafka    KafkaConf  `yaml:"Kafka"`
 	Jaeger   JaegerConf `yaml:"Jaeger"`
+	Minio    MinioConf  `yaml:"Minio"`
 }
 
 // Captcha is the configuration of the captcha.
@@ -126,4 +128,11 @@ type KafkaConf struct {
 
 type JaegerConf struct {
 	Addr string `yaml:"Addr"`
+}
+
+type MinioConf struct {
+	EndPoint     string `yaml:"EndPoint"`
+	AccessKey    string `yaml:"AccessKey"`
+	AccessSecret string `yaml:"AccessSecret"`
+	UseSSL       bool   `yaml:"UseSSL"`
 }

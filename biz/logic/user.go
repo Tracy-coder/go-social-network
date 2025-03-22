@@ -10,20 +10,27 @@ import (
 	"go-social-network/configs"
 	"go-social-network/data"
 	"go-social-network/pkg/encrypt"
+	"go-social-network/pkg/snowflake"
 	"log"
+	"net/url"
 	"strconv"
 	"time"
 
 	"github.com/IBM/sarama"
+	"github.com/minio/minio-go/v7"
 	"github.com/redis/go-redis/v9"
 )
 
 type User struct {
-	Data *data.Data
+	Data  *data.Data
+	minio *minio.Client
 }
 
-func NewUser(data *data.Data) domain.User {
-	return &User{Data: data}
+func NewUser(data *data.Data, minioClient *minio.Client) domain.User {
+	return &User{
+		Data:  data,
+		minio: minioClient,
+	}
 }
 
 func (u *User) Reset(ctx context.Context) {
@@ -98,7 +105,7 @@ func (u *User) UserInfo(ctx context.Context, userID int64) (*domain.UserInfoResp
 	return nil, errors.New("get user info error")
 }
 
-func (u *User) PostStatus(ctx context.Context, userID int64, message string) (*domain.StatusInfo, error) {
+func (u *User) PostStatus(ctx context.Context, userID int64, message string, numUrls int32) (*domain.StatusInfo, error) {
 	pipeline := u.Data.Redis.TxPipeline()
 	pipeline.HGet(ctx, common.UserInfoHashTable(userID), "username")
 	pipeline.Incr(ctx, common.StatusIDCounter)
@@ -106,6 +113,21 @@ func (u *User) PostStatus(ctx context.Context, userID int64, message string) (*d
 	if err != nil {
 		return nil, err
 	}
+
+	putUrls := make([]string, numUrls)
+	objectNames := make([]string, numUrls)
+
+	for i := 0; i < int(numUrls); i++ {
+		objectName := snowflake.GenerateID()
+		url, err := u.minio.PresignedPutObject(ctx, common.ImageBucketName, objectName, time.Minute)
+		if err != nil {
+			return nil, err
+		}
+		objectNames[i] = objectName
+		// putUrls[i] = url.Host + url.Path + "?" + url.RawQuery
+		putUrls[i] = url.String()
+	}
+
 	username, id := res[0].(*redis.StringCmd).Val(), res[1].(*redis.IntCmd).Val()
 	posted := time.Now().UnixMilli()
 	data := make(map[string]interface{})
@@ -115,6 +137,8 @@ func (u *User) PostStatus(ctx context.Context, userID int64, message string) (*d
 	data["userID"] = userID
 	data["username"] = username
 	data["likes"] = 0
+	jsonObjectNames, _ := json.Marshal(objectNames)
+	data["objectNames"] = jsonObjectNames
 	pipeline.HMSet(ctx, common.StatusInfoHashTable(id), data)
 	pipeline.HIncrBy(ctx, common.UserInfoHashTable(userID), "posts", 1)
 	pipeline.ZAdd(ctx, common.UserProfileZSet(userID), redis.Z{Member: id, Score: float64(posted)})
@@ -133,6 +157,7 @@ func (u *User) PostStatus(ctx context.Context, userID int64, message string) (*d
 		Username: username,
 		Message:  message,
 		Posted:   uint64(posted),
+		PutUrls:  putUrls,
 	}, nil
 }
 
@@ -200,6 +225,25 @@ func (u *User) GetTimeline(ctx context.Context, userID int64, pageID int32, page
 		id, _ := strconv.ParseInt(temp["id"], 10, 64)
 		ownerID, _ := strconv.ParseInt(temp["userID"], 10, 64)
 		posted, _ := strconv.ParseUint(temp["posted"], 10, 64)
+		images := make([]string, 0)
+		if temp["objectNames"] != "" {
+			err := json.Unmarshal([]byte(temp["objectNames"]), &images)
+			if err != nil {
+				return nil, err
+			}
+		}
+		// fmt.Println(images)
+		getUrls := make([]string, len(images))
+		for i := 0; i < len(images); i++ {
+			reqParams := make(url.Values)
+			// 当客户端拿着这presigned URL请求的返回时，带上的header，比如可以带上response-content-type
+			reqParams.Set("response-content-disposition", "attachment; filename="+images[i])
+			url, err := u.minio.PresignedGetObject(ctx, common.ImageBucketName, images[i], time.Minute, reqParams)
+			if err != nil {
+				return nil, err
+			}
+			getUrls[i] = url.String()
+		}
 		isLiked, _ := u.Data.Redis.SIsMember(ctx, common.UserLikeSet(userID), id).Result()
 		fmt.Println(isLiked)
 		info[i] = &domain.StatusInfo{
@@ -210,6 +254,7 @@ func (u *User) GetTimeline(ctx context.Context, userID int64, pageID int32, page
 			Posted:     posted,
 			IsLiked:    isLiked,
 			IsFollowed: true,
+			GetUrls:    getUrls,
 		}
 	}
 	fmt.Println(info)
@@ -235,12 +280,33 @@ func (u *User) GetProfile(ctx context.Context, userID int64, pageID int32, pageS
 		id, _ := strconv.ParseInt(temp["id"], 10, 64)
 		userID, _ := strconv.ParseInt(temp["userID"], 10, 64)
 		posted, _ := strconv.ParseUint(temp["posted"], 10, 64)
+		isLiked, _ := u.Data.Redis.SIsMember(ctx, common.UserLikeSet(userID), id).Result()
+		images := make([]string, 0)
+		if temp["objectNames"] != "" {
+			err := json.Unmarshal([]byte(temp["objectNames"]), &images)
+			if err != nil {
+				return nil, err
+			}
+		}
+		// fmt.Println(images)
+		getUrls := make([]string, len(images))
+		for i := 0; i < len(images); i++ {
+			reqParams := make(url.Values)
+			reqParams.Set("response-content-disposition", "attachment; filename="+images[i])
+			url, err := u.minio.PresignedGetObject(ctx, common.ImageBucketName, images[i], time.Minute, reqParams)
+			if err != nil {
+				return nil, err
+			}
+			getUrls[i] = url.String()
+		}
 		info[i] = &domain.StatusInfo{
 			ID:       id,
 			UserID:   userID,
 			Username: temp["username"],
 			Message:  temp["message"],
 			Posted:   posted,
+			IsLiked:  isLiked,
+			GetUrls:  getUrls,
 		}
 	}
 	return info, nil
@@ -268,6 +334,24 @@ func (u *User) GetHot(ctx context.Context, userID int64, pageID int32, pageSize 
 		isLiked, _ := u.Data.Redis.SIsMember(ctx, common.UserLikeSet(userID), id).Result()
 		isFollow := u.Data.Redis.ZScore(ctx, common.FollowingZSet(userID), fmt.Sprintf("%d", ownerID)).Val()
 		fmt.Println("isFollow:", userID, ownerID, isFollow)
+		images := make([]string, 0)
+		if temp["objectNames"] != "" {
+			err := json.Unmarshal([]byte(temp["objectNames"]), &images)
+			if err != nil {
+				return nil, err
+			}
+		}
+		// fmt.Println(images)
+		getUrls := make([]string, len(images))
+		for i := 0; i < len(images); i++ {
+			reqParams := make(url.Values)
+			reqParams.Set("response-content-disposition", "attachment; filename="+images[i])
+			url, err := u.minio.PresignedGetObject(ctx, common.ImageBucketName, images[i], time.Minute, reqParams)
+			if err != nil {
+				return nil, err
+			}
+			getUrls[i] = url.String()
+		}
 		info[i] = &domain.StatusInfo{
 			ID:         id,
 			UserID:     ownerID,
@@ -276,6 +360,7 @@ func (u *User) GetHot(ctx context.Context, userID int64, pageID int32, pageSize 
 			Posted:     posted,
 			IsLiked:    isLiked,
 			IsFollowed: isFollow != 0,
+			GetUrls:    getUrls,
 		}
 	}
 	fmt.Println(info)

@@ -16,6 +16,10 @@ const (
 	ScorePerLike      = 3600000
 )
 
+const (
+	ImageBucketName = "images"
+)
+
 func NewKeyGenerator(prefix string) func(interface{}) string {
 	return func(id interface{}) string {
 		switch v := id.(type) {

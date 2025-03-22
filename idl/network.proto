@@ -29,6 +29,7 @@ message UserInfoResp{
 
 message PostStatusReq{
   string message = 1;
+  repeated string filenames = 2;
 }
 
 message PostStatusResp{
@@ -39,6 +40,7 @@ message PostStatusResp{
   string username = 5;
   string message = 6;
   uint64 posted = 7;
+  repeated string putUrls = 8;
 }
 
 message GetTimelineReq{
@@ -57,6 +59,7 @@ message StatusInfo{
   uint64 posted = 5;
   bool isLiked = 6;
   bool isFollowed = 7;
+  repeated string getUrls = 8;
 }
 
 message ToggleLikeStatusReq{

@@ -19,7 +19,7 @@ import (
 
 var data *Data
 
-func initData() {
+func InitData() {
 	var err error
 	data, err = NewData(configs.Data())
 	if err != nil {

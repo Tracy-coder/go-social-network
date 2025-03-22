@@ -39,6 +39,8 @@ type StatusInfo struct {
 	Posted     uint64
 	IsLiked    bool
 	IsFollowed bool
+	PutUrls    []string
+	GetUrls    []string
 }
 
 type MessageInfo struct {
@@ -62,7 +64,7 @@ type User interface {
 	Register(ctx context.Context, req UserRegisterReq) error
 	Login(ctx context.Context, username string, password string) (*UserLoginResp, error)
 	UserInfo(ctx context.Context, userID int64) (*UserInfoResp, error)
-	PostStatus(ctx context.Context, userID int64, message string) (*StatusInfo, error)
+	PostStatus(ctx context.Context, userID int64, message string, numUrls int32) (*StatusInfo, error)
 	DeleteStatus(ctx context.Context, userID int64, postID int64) error
 	GetTimeline(ctx context.Context, userID int64, pageID int32, pageSize int32) ([]*StatusInfo, error)
 	GetProfile(ctx context.Context, userID int64, pageID int32, pageSize int32) ([]*StatusInfo, error)

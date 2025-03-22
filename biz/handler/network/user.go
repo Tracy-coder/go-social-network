@@ -13,13 +13,11 @@ import (
 	base "go-social-network/biz/model/base"
 	network "go-social-network/biz/model/network"
 	"go-social-network/data"
+	"go-social-network/minio"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/jinzhu/copier"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
 // Register .
@@ -37,7 +35,7 @@ func Register(ctx context.Context, c *app.RequestContext) {
 	}
 	var userRegisterReq domain.UserRegisterReq
 	_ = copier.Copy(&userRegisterReq, &req)
-	err = logic.NewUser(data.Default()).Register(ctx, userRegisterReq)
+	err = logic.NewUser(data.Default(), minio.Default()).Register(ctx, userRegisterReq)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_CreateUserError
 		resp.ErrMsg = err.Error()
@@ -67,7 +65,7 @@ func UserInfo(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	info, err := logic.NewUser(data.Default()).UserInfo(ctx, userID)
+	info, err := logic.NewUser(data.Default(), minio.Default()).UserInfo(ctx, userID)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_GetUserInfoError
 		resp.ErrMsg = err.Error()
@@ -110,6 +108,7 @@ func PostStatus(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
+	fmt.Println(req.Filenames)
 	userID, err := getUserID(c)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_UnauthorizedError
@@ -117,7 +116,7 @@ func PostStatus(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	res, err := logic.NewUser(data.Default()).PostStatus(ctx, userID, req.Message)
+	res, err := logic.NewUser(data.Default(), minio.Default()).PostStatus(ctx, userID, req.Message, int32(len(req.Filenames)))
 	if err != nil {
 		resp.ErrCode = base.ErrCode_PostStatusError
 		resp.ErrMsg = err.Error()
@@ -137,10 +136,6 @@ func PostStatus(ctx context.Context, c *app.RequestContext) {
 // GetTimeline .
 // @router /api/v1/user/timeline [GET]
 func GetTimeline(ctx context.Context, c *app.RequestContext) {
-	ctx, span := otel.Tracer("Handler").Start(ctx, "GetTimelineHandler", trace.WithSpanKind(trace.SpanKindServer))
-	defer span.End()
-	span.SetAttributes(attribute.Bool("isTrue", true), attribute.String("stringAttr", "hi!"))
-	span.AddEvent("test")
 	var err error
 	var req network.GetTimelineReq
 	err = c.BindAndValidate(&req)
@@ -158,7 +153,7 @@ func GetTimeline(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	res, err := logic.NewUser(data.Default()).GetTimeline(ctx, userID, req.PageID, req.PageSize)
+	res, err := logic.NewUser(data.Default(), minio.Default()).GetTimeline(ctx, userID, req.PageID, req.PageSize)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_GetTimelineError
 		resp.ErrMsg = err.Error()
@@ -199,9 +194,9 @@ func FollowAndUnfollow(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if req.Action == true {
-		err = logic.NewUser(data.Default()).FollowAction(ctx, userID, req.OtherID)
+		err = logic.NewUser(data.Default(), minio.Default()).FollowAction(ctx, userID, req.OtherID)
 	} else {
-		err = logic.NewUser(data.Default()).UnFollowAction(ctx, userID, req.OtherID)
+		err = logic.NewUser(data.Default(), minio.Default()).UnFollowAction(ctx, userID, req.OtherID)
 	}
 	if err != nil {
 		resp.ErrCode = base.ErrCode_FollowAndUnfollowError
@@ -215,7 +210,7 @@ func FollowAndUnfollow(ctx context.Context, c *app.RequestContext) {
 // Reset .
 // @router /api/v1/reset [DELETE]
 func Reset(ctx context.Context, c *app.RequestContext) {
-	logic.NewUser(data.Default()).Reset(ctx)
+	logic.NewUser(data.Default(), minio.Default()).Reset(ctx)
 }
 
 // DeleteStatus .
@@ -238,7 +233,7 @@ func DeleteStatus(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	err = logic.NewUser(data.Default()).DeleteStatus(ctx, userID, req.PostID)
+	err = logic.NewUser(data.Default(), minio.Default()).DeleteStatus(ctx, userID, req.PostID)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_DeleteStatusError
 		resp.ErrMsg = err.Error()
@@ -268,7 +263,7 @@ func CreateChat(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	chatID, err := logic.NewUser(data.Default()).CreateChat(ctx, userID, req.MemberID)
+	chatID, err := logic.NewUser(data.Default(), minio.Default()).CreateChat(ctx, userID, req.MemberID)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_CreateChatError
 		resp.ErrMsg = err.Error()
@@ -300,7 +295,7 @@ func PostMessage(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	fmt.Println(req.ID, req.Message)
-	info, err := logic.NewUser(data.Default()).PostMessage(ctx, userID, req.ID, req.Message)
+	info, err := logic.NewUser(data.Default(), minio.Default()).PostMessage(ctx, userID, req.ID, req.Message)
 
 	if err != nil {
 		resp.ErrCode = base.ErrCode_PostMessageError
@@ -340,7 +335,7 @@ func GetPendingMessage(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	info, err := logic.NewUser(data.Default()).GetPendingMessage(ctx, userID, req.ID)
+	info, err := logic.NewUser(data.Default(), minio.Default()).GetPendingMessage(ctx, userID, req.ID)
 
 	if err != nil {
 		resp.ErrCode = base.ErrCode_CreateChatError
@@ -377,7 +372,7 @@ func LeaveChat(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	err = logic.NewUser(data.Default()).LeaveChat(ctx, userID, req.ID)
+	err = logic.NewUser(data.Default(), minio.Default()).LeaveChat(ctx, userID, req.ID)
 
 	if err != nil {
 		resp.ErrCode = base.ErrCode_LeaveChatError
@@ -408,7 +403,7 @@ func GetProfile(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	res, err := logic.NewUser(data.Default()).GetProfile(ctx, userID, req.PageID, req.PageSize)
+	res, err := logic.NewUser(data.Default(), minio.Default()).GetProfile(ctx, userID, req.PageID, req.PageSize)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_GetTimelineError
 		resp.ErrMsg = err.Error()
@@ -450,7 +445,7 @@ func SearchUser(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	res, err := logic.NewUser(data.Default()).SearchUser(ctx, userID, req.Expr)
+	res, err := logic.NewUser(data.Default(), minio.Default()).SearchUser(ctx, userID, req.Expr)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_SearchUserError
 		resp.ErrMsg = err.Error()
@@ -483,7 +478,7 @@ func GetFollowings(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	res, err := logic.NewUser(data.Default()).GetFollowings(ctx, userID)
+	res, err := logic.NewUser(data.Default(), minio.Default()).GetFollowings(ctx, userID)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_GetFollowingsError
 		resp.ErrMsg = err.Error()
@@ -523,7 +518,7 @@ func GetFollowers(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	res, err := logic.NewUser(data.Default()).GetFollowers(ctx, userID)
+	res, err := logic.NewUser(data.Default(), minio.Default()).GetFollowers(ctx, userID)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_GetFollowersError
 		resp.ErrMsg = err.Error()
@@ -556,7 +551,7 @@ func GetFriends(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	res, err := logic.NewUser(data.Default()).GetFriends(ctx, userID)
+	res, err := logic.NewUser(data.Default(), minio.Default()).GetFriends(ctx, userID)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_GetFriendsError
 		resp.ErrMsg = err.Error()
@@ -589,7 +584,7 @@ func GetChatList(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	res, err := logic.NewUser(data.Default()).GetChatList(ctx, userID)
+	res, err := logic.NewUser(data.Default(), minio.Default()).GetChatList(ctx, userID)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_GetChatListError
 		resp.ErrMsg = err.Error()
@@ -632,7 +627,7 @@ func ToggleLikeStatus(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	err = logic.NewUser(data.Default()).ToggleLikeStatus(ctx, userID, req.ID, req.Action)
+	err = logic.NewUser(data.Default(), minio.Default()).ToggleLikeStatus(ctx, userID, req.ID, req.Action)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_ToggleLikeStatusError
 		resp.ErrMsg = err.Error()
@@ -662,7 +657,7 @@ func GetHot(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
-	res, err := logic.NewUser(data.Default()).GetHot(ctx, userID, req.PageID, req.PageSize)
+	res, err := logic.NewUser(data.Default(), minio.Default()).GetHot(ctx, userID, req.PageID, req.PageSize)
 	if err != nil {
 		resp.ErrCode = base.ErrCode_GetHotError
 		resp.ErrMsg = err.Error()

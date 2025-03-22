@@ -12,6 +12,8 @@ import (
 	"go-social-network/biz/domain"
 	"go-social-network/biz/logic"
 
+	"go-social-network/minio"
+
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/hertz-contrib/jwt"
@@ -75,7 +77,7 @@ func newJWT(db *Data.Data) (jwtMiddleware *jwt.HertzJWTMiddleware, err error) {
 			// Login
 			username := loginVal.Username
 			password := loginVal.Password
-			res, err = logic.NewUser(db).Login(ctx, username, password)
+			res, err = logic.NewUser(db, minio.Default()).Login(ctx, username, password)
 			if err != nil {
 				hlog.Error(err, "jwtLogin error")
 				return nil, err

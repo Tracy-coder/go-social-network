@@ -5,6 +5,7 @@ Host: 0.0.0.0
 Port: 8888
 Timeout: 30000
 CronExpr: "@every 1m"
+LogDir: "./tmp/logs"
 
 Captcha:
   KeyLong: 5
@@ -52,3 +53,9 @@ Kafka:
 
 Jaeger:
   Addr: "127.0.0.1:4317"
+
+Minio:
+  AccessKey: "bWwNs039kNRNLLFJCzdr"
+  AccessSecret: "GCK5R7Y2BxShnqltKHbWzHMVt8kHR6aHzitnlPdN"
+  EndPoint: "127.0.0.1:9000"
+  UseSSL: false    
