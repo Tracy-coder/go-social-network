@@ -8,6 +8,17 @@
           follow
         </b-button>
           <div>{{ entry.message }}</div>
+    <div v-if="entry.getUrls && entry.getUrls.length">
+<b-button v-show="showDelete" variant="primary" @click="$emit('deleteStatus',entry.ID)">
+          deleteStatus
+        </b-button>
+      <img
+        v-for="(url, index) in entry.getUrls"
+        :key="index"
+        :src="url"
+        alt="Image"
+        class="image-preview" />
+    </div>
       <div>
         <b-button variant="primary" v-show="entry.isLiked"
         @click="$emit('toggleLikeStatus', entry.ID,false)">
@@ -38,6 +49,9 @@ export default {
     },
     showUnfollow() {
       return !this.entry.isFollowed && this.entry.userID !== this.userInfo.ID;
+    },
+    showDelete() {
+      return this.entry.userID === this.userInfo.ID;
     },
   },
   props: {

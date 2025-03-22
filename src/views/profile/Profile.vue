@@ -15,13 +15,14 @@
   <h2>Profile</h2>
   <ul class="list-group">
     <li class="list-group-item" v-for="status in userStatuses" :key="status.ID">
-      <div>
+<status :entry="status" @deleteStatus="deleteStatus" @toggleLikeStatus="toggleLikeStatus"></status>
+      <!-- <div>
         <strong>{{ status.username }}</strong> - {{ formatDate(status.posted) }}
       </div>
       <div>{{ status.message }}</div>
         <b-button variant="primary" @click="deleteStatus(status.ID)">
           Delete
-        </b-button>
+        </b-button> -->
     </li>
   </ul>
 </div>
@@ -37,9 +38,10 @@
 import { mapActions, mapState } from 'vuex';
 import userService from '../../service/userService';
 import UserList from '../userList/UserList.vue';
+import Status from '../status/Status.vue';
 
 export default {
-  components: { UserList },
+  components: { UserList, Status },
   computed: {
     ...mapState('userModule', {
       userInfo: (state) => state.userInfo,
@@ -131,6 +133,19 @@ export default {
     },
     deleteStatus(postID) {
       this.deleteStatusAction(postID).catch((err) => {
+        console.log(err);
+      });
+    },
+    toggleLikeStatus(ID, action) {
+      console.log(ID);
+      this.userStatuses = JSON.parse(JSON.stringify(this.userStatuses));
+      userService.toggleLikeStatus(ID, action).then(() => {
+        const entry = this.userStatuses.find((status) => status.ID === ID);
+        if (entry) {
+          this.$set(entry, 'isLiked', action);
+        }
+        console.log(this.userStatuses);
+      }).catch((err) => {
         console.log(err);
       });
     },

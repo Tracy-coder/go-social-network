@@ -1,8 +1,8 @@
 import request from '@/utils/request';
 
-const postStatus = (message) => {
-  // console.log(username, password, email);
-  return request.post('/api/v1/user/post', { message });
+const postStatus = (message, filenames) => {
+  console.log(message, filenames);
+  return request.post('/api/v1/user/post', { message, filenames });
 };
 
 const fetchStatuses = () => {

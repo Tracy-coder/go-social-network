@@ -60,6 +60,7 @@ export default {
         console.log(res);
         this.messageList.unshift(res.data.info);
       });
+      this.newMessage = '';
     },
   },
   filters: {

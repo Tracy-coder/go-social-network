@@ -9,11 +9,12 @@ const statusModule = {
   },
 
   actions: {
-    postStatus(context, message) {
-      console.log(message);
+    postStatus(context, { message, filenames }) {
+      console.log(message, filenames);
       return new Promise((resolve, reject) => {
-        console.log(message);
-        statusService.postStatus(message).then((res) => {
+        // console.log(message, files);
+        statusService.postStatus(message, filenames).then((res) => {
+          console.log(res);
           resolve(res);
         }).catch((err) => {
           reject(err);
