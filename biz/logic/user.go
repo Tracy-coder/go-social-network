@@ -237,7 +237,7 @@ func (u *User) GetTimeline(ctx context.Context, userID int64, pageID int32, page
 		for i := 0; i < len(images); i++ {
 			reqParams := make(url.Values)
 			// 当客户端拿着这presigned URL请求的返回时，带上的header，比如可以带上response-content-type
-			reqParams.Set("response-content-disposition", "attachment; filename="+images[i])
+			// reqParams.Set("response-content-disposition", "attachment; filename="+images[i])
 			url, err := u.minio.PresignedGetObject(ctx, common.ImageBucketName, images[i], time.Minute, reqParams)
 			if err != nil {
 				return nil, err
@@ -292,7 +292,7 @@ func (u *User) GetProfile(ctx context.Context, userID int64, pageID int32, pageS
 		getUrls := make([]string, len(images))
 		for i := 0; i < len(images); i++ {
 			reqParams := make(url.Values)
-			reqParams.Set("response-content-disposition", "attachment; filename="+images[i])
+			// reqParams.Set("response-content-disposition", "attachment; filename="+images[i])
 			url, err := u.minio.PresignedGetObject(ctx, common.ImageBucketName, images[i], time.Minute, reqParams)
 			if err != nil {
 				return nil, err
@@ -345,7 +345,7 @@ func (u *User) GetHot(ctx context.Context, userID int64, pageID int32, pageSize 
 		getUrls := make([]string, len(images))
 		for i := 0; i < len(images); i++ {
 			reqParams := make(url.Values)
-			reqParams.Set("response-content-disposition", "attachment; filename="+images[i])
+			// reqParams.Set("response-content-disposition", "attachment; filename="+images[i])
 			url, err := u.minio.PresignedGetObject(ctx, common.ImageBucketName, images[i], time.Minute, reqParams)
 			if err != nil {
 				return nil, err
