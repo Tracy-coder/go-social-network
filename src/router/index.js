@@ -1,9 +1,7 @@
 import Vue from 'vue';
 import VueRouter from 'vue-router';
-import store from '@/store';
 import Home from '../views/Home.vue';
 import userRoutes from './module/user';
-
 
 Vue.use(VueRouter);
 
@@ -63,10 +61,9 @@ const router = new VueRouter({
   routes,
 });
 
-
 router.beforeEach((to, from, next) => {
   if (to.meta.auth) {
-    if (store.state.userModule.token) {
+    if (localStorage.getItem('jkdev_user_token')) {
       next();
     } else {
       router.push({ name: 'login' });

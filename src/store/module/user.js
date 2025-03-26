@@ -10,8 +10,9 @@ const userModule = {
   },
 
   mutations: {
-    SET_TOKEN(state, token) {
-      storageService.set(storageService.USER_TOKEN, token);
+    SET_TOKEN(state, { token, expire }) {
+      console.log(expire);
+      storageService.set(storageService.USER_TOKEN, token, expire);
       state.token = token;
     },
     SET_USERINFO(state, userInfo) {
@@ -36,7 +37,8 @@ const userModule = {
     login(context, { username, password }) {
       return new Promise((resolve, reject) => {
         userService.login({ username, password }).then((res) => {
-          context.commit('SET_TOKEN', res.data.token);
+          console.log(res.data.expire);
+          context.commit('SET_TOKEN', res.data);
           return userService.info();
         }).then((res) => {
           context.commit('SET_USERINFO', res.data);

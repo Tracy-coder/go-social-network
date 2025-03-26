@@ -32,11 +32,10 @@
           class="mb-3"
         >
           <b-card
-            img-src="file.preview"
-            img-alt="Image Preview"
-            img-top
             class="preview-card"
+            @click="test(file)"
           >
+          <img :src="file.preview" alt="Image Preview" class="preview-image" />
             <b-button
               size="sm"
               variant="danger"
@@ -102,6 +101,9 @@ export default {
     triggerUpload() {
       this.$refs.fileInput.click();
     },
+    test(file) {
+      console.log(file);
+    },
     handleFileChange(event) {
       const { files } = event.target;
       this.previewFiles = [];
@@ -141,56 +143,51 @@ export default {
         });
     },
     postStatus() {
-      // 提取文件名数组
-      const fileNames = this.selectedFiles.map((fileItem) => fileItem.name);
-      console.log(fileNames);
+      let fileNames = null;
+
+      if (this.selectedFiles.length > 0) {
+        fileNames = this.selectedFiles.map((fileItem) => fileItem.name);
+        console.log(fileNames);
+      }
 
       // 发送请求获取上传URLs
       this.post({ message: this.newStatus, filenames: fileNames })
         .then(async (res) => {
           console.log(res.data.putUrls);
-          const { putUrls } = res.data;
+          if (res.data.length > 0) {
+            const { putUrls } = res.data;
 
-          const uploadPromises = putUrls.map((url, index) => {
-            const file = this.selectedFiles[index];
+            const uploadPromises = putUrls.map((url, index) => {
+              const file = this.selectedFiles[index];
 
-            // 读取文件为ArrayBuffer
-            return file.arrayBuffer().then((arrayBuffer) => {
-              const blob = new Blob([arrayBuffer], { type: file.type });
+              // 读取文件为ArrayBuffer
+              return file.arrayBuffer().then((arrayBuffer) => {
+                const blob = new Blob([arrayBuffer], { type: file.type });
 
-              // 发送PUT请求上传文件
-              return axios.put(url, blob, {
-                headers: {
-                  'Content-Type': file.type,
-                },
+                // 发送PUT请求上传文件
+                return axios.put(url, blob, {
+                  headers: {
+                    'Content-Type': file.type,
+                  },
+                });
               });
             });
-          });
 
-          try {
-            await Promise.all(uploadPromises);
-            console.log('所有文件上传成功');
-            this.fetchStatuses();
-            this.selectedFiles = [];
-            this.previewFiles = [];
-            this.newStatus = '';
-          } catch (err) {
-            console.log(err);
-            this.$bvToast.toast(err.response.data.message || '文件上传失败', {
-              title: '上传失败',
-              variant: 'danger',
-              solid: true,
-            });
+            try {
+              await Promise.all(uploadPromises);
+              console.log('所有文件上传成功');
+              this.fetchStatuses();
+              this.selectedFiles = [];
+              this.previewFiles = [];
+            } catch (err) {
+              console.log(err);
+            }
           }
         })
         .catch((err) => {
           console.log(err);
-          this.$bvToast.toast(err.response.data.message || '请求上传URL失败', {
-            title: 'post status failed',
-            variant: 'danger',
-            solid: true,
-          });
         });
+      this.newStatus = '';
     },
     unfollowUser(userID) {
       userService.followAndUnfollow(userID, false).then((res) => {
